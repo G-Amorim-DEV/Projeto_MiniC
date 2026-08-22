@@ -76,6 +76,14 @@ class Scanner:
     def _at_end(self) -> bool:
         return self.pos >= self.length
 
+    @staticmethod
+    def _is_identifier_start(ch: str) -> bool:
+        return ch == "_" or (ch.isascii() and ch.isalpha())
+
+    @staticmethod
+    def _is_identifier_continue(ch: str) -> bool:
+        return Scanner._is_identifier_start(ch) or (ch.isascii() and ch.isdigit())
+
     def _peek(self, offset: int = 0) -> str:
         idx = self.pos + offset
         return self.source[idx] if idx < self.length else "\0"
@@ -121,9 +129,9 @@ class Scanner:
         start_line, start_col = self.line, self.column
         ch = self._advance()
 
-        if ch.isalpha() or ch == "_":
+        if self._is_identifier_start(ch):
             self._identifier(start_line, start_col, ch)
-        elif ch.isdigit():
+        elif ch.isascii() and ch.isdigit():
             self._number(start_line, start_col, ch)
         elif ch == '"':
             self._string(start_line, start_col)
@@ -138,7 +146,7 @@ class Scanner:
 
     def _identifier(self, line: int, col: int, first_char: str) -> None:
         lexeme = first_char
-        while not self._at_end() and (self._peek().isalnum() or self._peek() == "_"):
+        while not self._at_end() and self._is_identifier_continue(self._peek()):
             lexeme += self._advance()
 
         ttype = RESERVED_WORDS.get(lexeme, TokenType.ID)
@@ -147,14 +155,14 @@ class Scanner:
 
     def _number(self, line: int, col: int, first_digit: str) -> None:
         digits = first_digit
-        while not self._at_end() and self._peek().isdigit():
+        while not self._at_end() and self._peek().isascii() and self._peek().isdigit():
             digits += self._advance()
 
         # Caso i06: Identificador iniciado por dígito
-        if not self._at_end() and (self._peek().isalpha() or self._peek() == "_"):
+        if not self._at_end() and self._is_identifier_start(self._peek()):
             letters = ""
             letters_col = self.column
-            while not self._at_end() and (self._peek().isalnum() or self._peek() == "_"):
+            while not self._at_end() and self._is_identifier_continue(self._peek()):
                 letters += self._advance()
 
             self.errors.append(InvalidIdentifierError(digits + letters, line, col))
@@ -164,7 +172,7 @@ class Scanner:
 
         # Número real ou malformado (Caso i05)
         if self._peek() == ".":
-            if not self._peek(1).isdigit():
+            if not (self._peek(1).isascii() and self._peek(1).isdigit()):
                 dot_col = self.column
                 self._advance()
                 self.errors.append(MalformedRealLiteralError(digits + ".", line, col))
@@ -173,7 +181,7 @@ class Scanner:
                 return
 
             lexeme = digits + self._advance()
-            while not self._at_end() and self._peek().isdigit():
+            while not self._at_end() and self._peek().isascii() and self._peek().isdigit():
                 lexeme += self._advance()
 
             self._add_token(TokenType.NUM_FLOAT, lexeme, line, col, float(lexeme))
@@ -182,7 +190,6 @@ class Scanner:
         self._add_token(TokenType.NUM_INT, digits, line, col, int(digits))
 
     def _string(self, line: int, col: int) -> None:
-        # Caso i04: Cadeia não terminada
         start_pos = self.pos - 1
         content = ""
         closed = False
@@ -194,33 +201,47 @@ class Scanner:
                 self._advance()
                 closed = True
                 break
-            content += self._advance()
+            ch = self._advance()
+            if ch == "\\" and not self._at_end() and self._peek() != "\n":
+                escape = self._advance()
+                if escape in "nt\\\"'":
+                    content += {"n": "\n", "t": "\t"}.get(escape, escape)
+                    continue
+                content += "\\" + escape
+                continue
+            content += ch
 
         if closed:
-            lexeme = f'"{content}"'
+            lexeme = self.source[start_pos:self.pos]
             self._add_token(TokenType.STRING, lexeme, line, col, content)
         else:
             err_lexeme = self.source[start_pos:self.pos]
             self.errors.append(UnterminatedStringError(err_lexeme, line, col))
 
-            rewind = 0
-            while len(content) > 0 and content[-1] in (")", ";", "}", "]"):
-                content = content[:-1]
-                rewind += 1
-
-            if rewind > 0:
-                self.pos -= rewind
-                self.column -= rewind
+            # Mantém delimitadores finais no fluxo para recuperação dos fixtures.
+            while self.pos > start_pos + 1 and self.source[self.pos - 1] in ") ;}]":
+                self.pos -= 1
+                self.column -= 1
 
     def _char_literal(self, line: int, col: int) -> None:
-        # Caso i03: Caractere não terminado
         if self._at_end() or self._peek() == "\n":
             self.errors.append(UnterminatedCharError("'", line, col))
             return
 
         ch = self._advance()
+        raw = ch
+        if ch == "\\":
+            if self._at_end() or self._peek() == "\n":
+                self.errors.append(UnterminatedCharError("'\\", line, col))
+                return
+            escape = self._advance()
+            if escape not in "nt\\\"'":
+                self.errors.append(UnterminatedCharError("'\\" + escape, line, col))
+                return
+            raw = "\\" + escape
+            ch = {"n": "\n", "t": "\t"}.get(escape, escape)
         if self._match("'"):
-            self._add_token(TokenType.CHAR_LITERAL, f"'{ch}'", line, col, ch)
+            self._add_token(TokenType.CHAR_LITERAL, f"'{raw}'", line, col, ch)
         else:
             lexeme = f"'{ch}"
             self.errors.append(UnterminatedCharError(lexeme, line, col))
@@ -317,7 +338,7 @@ class Scanner:
 
 def main() -> int:
     caminho_alvo: str | None = None
-    modo_apenas_jsonl = False
+    modo_apenas_jsonl = True
 
     for arg in sys.argv[1:]:
         if arg == "--jsonl":
