@@ -5,30 +5,30 @@
 const char *token_type_name(TokenType type) {
     switch (type) {
         /* Palavras Reservadas */
-        case KW_BOOL: return "KW_BOOL";
-        case KW_INT: return "KW_INT";
-        case KW_FLOAT: return "KW_FLOAT";
-        case KW_CHAR: return "KW_CHAR";
-        case KW_DOUBLE: return "KW_DOUBLE";
-        case KW_VOID: return "KW_VOID";
-        case KW_TRUE: return "KW_TRUE";
-        case KW_FALSE: return "KW_FALSE";
-        case KW_IF: return "KW_IF";
-        case KW_ELSE: return "KW_ELSE";
-        case KW_WHILE: return "KW_WHILE";
-        case KW_FOR: return "KW_FOR";
-        case KW_RETURN: return "KW_RETURN";
-        case KW_BREAK: return "KW_BREAK";
-        case KW_CONTINUE: return "KW_CONTINUE";
-        case KW_PRINT: return "KW_PRINT";
-        case KW_READ: return "KW_READ";
+        case KW_BOOL: return "BOOL";
+        case KW_INT: return "INT";
+        case KW_FLOAT: return "FLOAT";
+        case KW_CHAR: return "CHAR";
+        case KW_DOUBLE: return "DOUBLE";
+        case KW_VOID: return "VOID";
+        case KW_TRUE: return "TRUE";
+        case KW_FALSE: return "FALSE";
+        case KW_IF: return "IF";
+        case KW_ELSE: return "ELSE";
+        case KW_WHILE: return "WHILE";
+        case KW_FOR: return "FOR";
+        case KW_RETURN: return "RETURN";
+        case KW_BREAK: return "BREAK";
+        case KW_CONTINUE: return "CONTINUE";
+        case KW_PRINT: return "PRINT";
+        case KW_READ: return "READ";
 
         /* Literais e Identificador */
-        case ID: return "ID";
-        case NUM_INT: return "NUM_INT";
-        case NUM_FLOAT: return "NUM_FLOAT";
-        case STRING: return "STRING";
-        case CHAR_LITERAL: return "CHAR_LITERAL";
+        case ID: return "IDENT";
+        case NUM_INT: return "INT_LIT";
+        case NUM_FLOAT: return "FLOAT_LIT";
+        case STRING: return "STRING_LIT";
+        case CHAR_LITERAL: return "CHAR_LIT";
 
         /* Operadores Aritméticos e Pontuação */
         case PLUS: return "PLUS";
@@ -52,7 +52,7 @@ const char *token_type_name(TokenType type) {
         case RBRACE: return "RBRACE";
         case LBRACKET: return "LBRACKET";
         case RBRACKET: return "RBRACKET";
-        case SEMI: return "SEMI";
+        case SEMI: return "SEMICOLON";
         case COMMA: return "COMMA";
         case DOT: return "DOT";
 

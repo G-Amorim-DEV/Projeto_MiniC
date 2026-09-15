@@ -88,6 +88,27 @@ O módulo de lexer está responsável por:
 - A parte em Python é a base mais avançada no momento e funciona como referência para os demais módulos.
 - A interface gráfica facilita os testes de entrada e diagnóstico em um fluxo visual e prático.
 
+## Análise sintática — Etapa 2
+
+O parser consome diretamente os `Token` produzidos pelo lexer e constrói uma
+AST tipada para declarações, funções, comandos e expressões. A saída de linha
+de comando é uma S-expression, por exemplo
+`Program(Function(int main() Block(Return(Lit(0)))))`.
+
+```bash
+# Python (somente biblioteca padrão)
+python3 parser.py codigo.c
+
+# C (compila o parser sem substituir o scanner da Etapa 1)
+make parser
+./parser codigo.c
+```
+
+Os códigos de saída são: `0` para sucesso, `1` para uso/leitura inválidos,
+`2` para erro léxico e `3` para erro sintático. A versão C usa apenas a
+biblioteca padrão de C e a versão Python usa apenas a biblioteca padrão; o
+`tkinter` existente permanece restrito à visualização do lexer.
+
 ## Tecnologias
 
 - Python
