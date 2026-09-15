@@ -5,6 +5,8 @@ CFLAGS = -std=c11 -Wall -Wextra -pedantic -O2
 SRC = C/main.c C/scanner.c C/token.c C/token_types.c C/errors.c C/util.c
 OBJ = $(SRC:.c=.o)
 TARGET = C/minic_scanner
+PARSER_SRC = C/parser_main.c C/parser.c C/ast.c C/scanner.c C/token.c C/token_types.c C/errors.c C/util.c
+PARSER_TARGET = parser
 
 # Compatibilidade para comando de remoção no Windows e Linux
 ifeq ($(OS),Windows_NT)
@@ -18,6 +20,9 @@ endif
 TARGET_BIN = $(TARGET)$(EXT)
 
 all: $(TARGET_BIN)
+
+parser: $(PARSER_SRC)
+	$(CC) $(CFLAGS) -o $(PARSER_TARGET) $(PARSER_SRC)
 
 $(TARGET_BIN): $(OBJ)
 	$(CC) $(CFLAGS) -o $@ $(OBJ)
@@ -46,8 +51,9 @@ test: test-valid test-invalid
 
 clean:
 	$(RM) C/*.o $(TARGET_BIN)
+	$(RM) $(PARSER_TARGET)
 	$(RM) ProjetoMiniC/casos-programas-c/*.out.jsonl
 	$(RM) ProjetoMiniC/casos-invalidos/*.out.jsonl
 	$(RM) ProjetoMiniC/casos-invalidos/*.err.jsonl
 
-.PHONY: all clean test test-valid test-invalid
+.PHONY: all parser clean test test-valid test-invalid
