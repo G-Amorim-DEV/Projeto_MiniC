@@ -7,17 +7,17 @@
 const char *error_code_name(ErrorCode code) {
     switch (code) {
         case ERR_UNKNOWN_SYMBOL:
-            return "SIMBOLO_DESCONHECIDO";
+            return "UNKNOWN_SYMBOL";
         case ERR_INVALID_IDENTIFIER:
-            return "IDENTIFICADOR_INVALIDO";
+            return "INVALID_IDENTIFIER";
         case ERR_MALFORMED_REAL_LITERAL:
-            return "NUMERO_REAL_MALFORMADO";
+            return "MALFORMED_REAL_LITERAL";
         case ERR_UNTERMINATED_STRING_LITERAL:
-            return "CADEIA_NAO_TERMINADA";
+            return "UNTERMINATED_STRING_LITERAL";
         case ERR_UNTERMINATED_BLOCK_COMMENT:
-            return "COMENTARIO_NAO_FECHADO";
+            return "UNTERMINATED_BLOCK_COMMENT";
         case ERR_UNTERMINATED_CHAR_LITERAL:
-            return "LITERAL_CHAR_MAL_FORMADO";
+            return "UNTERMINATED_CHAR_LITERAL";
         default:
             return "ERRO_LEXICO";
     }

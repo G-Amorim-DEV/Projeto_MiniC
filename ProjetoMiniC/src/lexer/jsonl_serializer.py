@@ -107,9 +107,9 @@ def serializar_erro(erro: LexicalError) -> dict:
 def serialize_tokens_jsonl(tokens: Sequence[Token]) -> str:
     tokens_validos = [t for t in tokens if t.type is not TokenType.ERROR]
     registros = [serializar_token(t) for t in tokens_validos]
-    return "\n".join(json.dumps(r, ensure_ascii=False) for r in registros)
+    return "\n".join(json.dumps(r, ensure_ascii=False, separators=(",", ":")) for r in registros)
 
 
 def serialize_errors_jsonl(erros: Iterable[LexicalError]) -> str:
     registros = [serializar_erro(e) for e in erros]
-    return "\n".join(json.dumps(r, ensure_ascii=False) for r in registros)
+    return "\n".join(json.dumps(r, ensure_ascii=False, separators=(",", ":")) for r in registros)

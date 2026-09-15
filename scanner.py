@@ -24,10 +24,7 @@ if len(sys.argv) > 1:
                     sys.argv[i] = str(caminho_alternativo)
             break
 
-try:
-    from src.lexer.scanner import Scanner, main  # type: ignore
-except (ModuleNotFoundError, ImportError):
-    from ProjetoMiniC.src.lexer.scanner import Scanner, main  # type: ignore
+from ProjetoMiniC.src.lexer.scanner import Scanner, main
 
 if __name__ == "__main__":
     sys.exit(main())
