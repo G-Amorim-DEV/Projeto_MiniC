@@ -102,12 +102,26 @@ python3 parser.py codigo.c
 # C (compila o parser sem substituir o scanner da Etapa 1)
 make parser
 ./parser codigo.c
+
+# Regressão do parser (executa as mesmas entradas em Python e C)
+make test-parser
 ```
+
+Na interface principal (`python3 main.py`), o botão **Análise Sintática** abre
+uma tela própria para digitar ou carregar um arquivo, executar o parser e
+consultar a AST, os diagnósticos com linha/coluna e os tokens reconhecidos.
 
 Os códigos de saída são: `0` para sucesso, `1` para uso/leitura inválidos,
 `2` para erro léxico e `3` para erro sintático. A versão C usa apenas a
 biblioteca padrão de C e a versão Python usa apenas a biblioteca padrão; o
-`tkinter` existente permanece restrito à visualização do lexer.
+`tkinter` é usado somente pelas interfaces gráficas dos analisadores léxico e
+sintático.
+
+Os testes de regressão cobrem declarações globais e locais (inclusive listas
+separadas por vírgula), vetores, funções, parâmetros, controle de fluxo,
+entrada/saída, chamadas, indexação, precedência e associatividade. Além de
+aceitar ou rejeitar cada caso, eles verificam que as duas implementações
+produzem exatamente a mesma representação textual da AST.
 
 ## Tecnologias
 

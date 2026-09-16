@@ -36,7 +36,7 @@ class Parser:
         declarations = []
         while not self._at_end():
             try:
-                declarations.append(self._top_level())
+                declarations.extend(self._top_level())
             except SyntaxErrorMiniC as error:
                 self.errors.append(error)
                 self._synchronize()
@@ -47,10 +47,10 @@ class Parser:
             raise self._error(self._peek(), "uma declaração global ou função")
         type_token = self._advance()
         if type_token.type is TokenType.KW_VOID:
-            return self._function_after_type(type_token)
+            return [self._function_after_type(type_token)]
         name = self._consume(TokenType.ID, "identificador após o tipo")
         if self._match(TokenType.LPAREN):
-            return self._function_after_open(type_token, name)
+            return [self._function_after_open(type_token, name)]
         return self._global_after_name(type_token, name)
 
     def _function_after_type(self, type_token: Token):
@@ -79,10 +79,15 @@ class Parser:
             if self._check(TokenType.RPAREN): raise self._error(self._peek(), "parâmetro após ','")
         return parameters
 
-    def _global_after_name(self, type_token: Token, name: Token) -> VarDecl:
-        declaration = self._declarator(type_token.lexeme, name)
+    def _global_after_name(self, type_token: Token, name: Token) -> List[VarDecl]:
+        declarations = [self._declarator(type_token.lexeme, name)]
+        while self._match(TokenType.COMMA):
+            declarations.append(self._declarator(
+                type_token.lexeme,
+                self._consume(TokenType.ID, "identificador após ','"),
+            ))
         self._consume(TokenType.SEMI, "';' após declaração global")
-        return declaration
+        return declarations
 
     def _block(self) -> Block:
         self._consume(TokenType.LBRACE, "'{' para iniciar bloco")

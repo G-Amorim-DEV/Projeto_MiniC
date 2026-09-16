@@ -49,6 +49,9 @@ test-invalid: $(TARGET_BIN)
 # Roda ambos os testes
 test: test-valid test-invalid
 
+test-parser: parser
+	python3 -m unittest discover -s tests -v
+
 clean:
 	$(RM) C/*.o $(TARGET_BIN)
 	$(RM) $(PARSER_TARGET)
@@ -56,4 +59,4 @@ clean:
 	$(RM) ProjetoMiniC/casos-invalidos/*.out.jsonl
 	$(RM) ProjetoMiniC/casos-invalidos/*.err.jsonl
 
-.PHONY: all parser clean test test-valid test-invalid
+.PHONY: all parser clean test test-valid test-invalid test-parser
