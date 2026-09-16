@@ -142,4 +142,46 @@ static AstNode *function_after(Parser *p, Token *type, Token *name) {
     if(!consume(p,RPAREN,"')' após parâmetros")){dynstr_free(&sig);return NULL;}dynstr_push_char(&sig,')');AstNode*body=block(p);if(!body){dynstr_free(&sig);return NULL;}AstNode*n=ast_new(AST_FUNCTION,sig.data);dynstr_free(&sig);ast_add(n,body);return n;
 }
 void parser_init(Parser *parser, Token *tokens, size_t count) { parser->tokens=tokens;parser->count=count;parser->current=0;parser->errors=0; }
-AstNode *parser_parse(Parser *p) { AstNode *root=ast_new(AST_PROGRAM,""); while(!at_end(p)){Token *type=peek(p);if(!is_type(type->type)&&type->type!=KW_VOID){error_at(p,type,"declaração global ou função");synchronize(p);continue;}advance_p(p);Token*name=consume(p,ID,"identificador após tipo");if(!name){synchronize(p);continue;}AstNode*n;if(check(p,LPAREN))n=function_after(p,type,name);else if(type->type==KW_VOID){error_at(p,name,"'(' após função void");n=NULL;}else{n=declarator(p,type->lexeme,name);if(n&&!consume(p,SEMI,"';' após declaração global")){ast_free(n);n=NULL;}}if(!n){synchronize(p);continue;}ast_add(root,n);} if(p->errors){ast_free(root);return NULL;}return root; }
+AstNode *parser_parse(Parser *p) {
+    AstNode *root = ast_new(AST_PROGRAM, "");
+    while (!at_end(p)) {
+        Token *type = peek(p);
+        if (!is_type(type->type) && type->type != KW_VOID) {
+            error_at(p, type, "declaração global ou função");
+            synchronize(p);
+            continue;
+        }
+        advance_p(p);
+        Token *name = consume(p, ID, "identificador após tipo");
+        if (!name) {
+            synchronize(p);
+            continue;
+        }
+        if (check(p, LPAREN)) {
+            AstNode *function = function_after(p, type, name);
+            if (!function) synchronize(p);
+            else ast_add(root, function);
+            continue;
+        }
+        if (type->type == KW_VOID) {
+            error_at(p, name, "'(' após função void");
+            synchronize(p);
+            continue;
+        }
+
+        AstNode *declaration = declarator(p, type->lexeme, name);
+        if (declaration) ast_add(root, declaration);
+        while (declaration && match(p, COMMA)) {
+            name = consume(p, ID, "identificador após ','");
+            declaration = name ? declarator(p, type->lexeme, name) : NULL;
+            if (declaration) ast_add(root, declaration);
+        }
+        if (!declaration || !consume(p, SEMI, "';' após declaração global"))
+            synchronize(p);
+    }
+    if (p->errors) {
+        ast_free(root);
+        return NULL;
+    }
+    return root;
+}
