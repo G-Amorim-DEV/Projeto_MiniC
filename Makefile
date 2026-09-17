@@ -52,6 +52,12 @@ test: test-valid test-invalid
 test-parser: parser
 	python3 -m unittest discover -s tests -v
 
+# Executa os 50 casos externos do professor.
+# Uso: make test-parser-50 CASES_DIR="C:\\caminho\\testes-parser-50\\testes-parser-50\\casos"
+CASES_DIR ?= ../testes-parser-50/testes-parser-50/casos
+test-parser-50:
+	python test_parser_50.py "$(CASES_DIR)"
+
 clean:
 	$(RM) C/*.o $(TARGET_BIN)
 	$(RM) $(PARSER_TARGET)
@@ -59,4 +65,4 @@ clean:
 	$(RM) ProjetoMiniC/casos-invalidos/*.out.jsonl
 	$(RM) ProjetoMiniC/casos-invalidos/*.err.jsonl
 
-.PHONY: all parser clean test test-valid test-invalid test-parser
+.PHONY: all parser clean test test-valid test-invalid test-parser test-parser-50

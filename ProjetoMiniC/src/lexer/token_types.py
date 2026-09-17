@@ -3,7 +3,6 @@ token_types.py
 ==============
 
 Enumeração de tokens e mapa de palavras reservadas da linguagem MiniC.
-Compatível com Python 3.8+.
 """
 
 from enum import Enum, auto
@@ -57,24 +56,22 @@ class TokenType(Enum):
     AND = auto()   # &&
     OR = auto()    # ||
     NOT = auto()   # !
-
-    # Delimitadores
-    LPAREN = auto()
-    RPAREN = auto()
-    LBRACE = auto()
-    RBRACE = auto()
-    LBRACKET = auto()
-    RBRACKET = auto()
-    SEMI = auto()
-    COMMA = auto()
-    DOT = auto()
+    LPAREN = auto()         # (
+    RPAREN = auto()         # )
+    LBRACE = auto()         # {
+    RBRACE = auto()         # }
+    LBRACKET = auto()       # [
+    RBRACKET = auto()       # ]
+    SEMI = auto()           # ;
+    COMMA = auto()          # ,
+    DOT = auto()            # .
 
     # Controle
     EOF = auto()
     ERROR = auto()
 
-
-RESERVED_WORDS: Dict[str, TokenType] = {
+# Mapeamento estático para identificação rápida de palavras reservadas
+PALAVRAS_RESERVADAS: Dict[str, TokenType] = {
     "bool": TokenType.KW_BOOL,
     "int": TokenType.KW_INT,
     "float": TokenType.KW_FLOAT,

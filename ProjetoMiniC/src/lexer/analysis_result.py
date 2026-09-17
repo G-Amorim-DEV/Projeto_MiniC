@@ -1,37 +1,37 @@
 """
 analysis_result.py
 ==================
-
-Estruturas de dados que agrupam o resultado de uma análise léxica.
-Compatível com Python 3.8+.
+Estruturas de suporte para armazenamento do estado dos dados gerados após análise léxica.
 """
 
 from __future__ import annotations
-
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import List, Optional
 
-from .errors import LexicalError
+from .errors import ErroLexico
 from .tokens import Token
 
 
 @dataclass
-class AnalysisResult:
+class ResultadoAnalise:
+    """Contêiner principal com o inventário completo de tokens e erros acumulados."""
     tokens: List[Token] = field(default_factory=list)
-    errors: List[LexicalError] = field(default_factory=list)
+    erros: List[ErroLexico] = field(default_factory=list)
 
     @property
-    def has_errors(self) -> bool:
-        return len(self.errors) > 0
+    def possui_erros(self) -> bool:
+        """Informa se a análise encontrou falhas léxicas."""
+        return len(self.erros) > 0
 
 
 @dataclass
-class AnalysisView:
-    title: str
-    source: str
-    result: AnalysisResult
-    formatted_output: str
+class VisaoAnalise:
+    """Estrutura utilizada pelas interfaces visuais/CLI para exibição de relatórios."""
+    titulo: str
+    fonte: str
+    resultado: ResultadoAnalise
+    saida_formatada: str
     tokens_jsonl: str = ""
-    errors_jsonl: str = ""
-    source_path: Optional[Path] = None
+    erros_jsonl: str = ""
+    caminho_fonte: Optional[Path] = None

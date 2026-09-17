@@ -1,9 +1,8 @@
 """
 __main__.py
 ===========
-
-Ponto de entrada do pacote `src.lexer`.
-Compatível com Python 3.8+.
+Ponto de entrada do pacote do Lexer. Suporta interface gráfica via Tkinter
+e execução direta via CLI no terminal.
 """
 
 from __future__ import annotations
@@ -14,8 +13,8 @@ from pathlib import Path
 import tkinter as tk
 from tkinter import filedialog, messagebox, scrolledtext, ttk
 
-from .analysis_result import AnalysisResult, AnalysisView
-from .demo import TEST_CODE_1, TEST_CODE_2, TEST_CODE_3
+from .analysis_result import ResultadoAnalise, VisaoAnalise
+from .demo import CODIGO_TESTE_1, CODIGO_TESTE_2, CODIGO_TESTE_3
 from .jsonl_serializer import serialize_errors_jsonl, serialize_tokens_jsonl
 from .scanner import Scanner
 
@@ -28,6 +27,7 @@ EXTENSOES_SUPORTADAS = (
 
 
 def formatar_saida_scanner(scanner: Scanner, texto_fonte: str, titulo: str = "Análise Léxica") -> str:
+    """Gera um relatório de saída completo formatado em string."""
     linhas: list[str] = []
     linhas.append("=" * 80)
     linhas.append(titulo)
@@ -44,7 +44,7 @@ def formatar_saida_scanner(scanner: Scanner, texto_fonte: str, titulo: str = "An
         linhas.append(cabecalho)
         linhas.append("-" * len(cabecalho))
         for token in scanner.tokens:
-            nome, lexema, linha, coluna, atributo = token.as_row()
+            nome, lexema, linha, coluna, atributo = token.para_linha_tabela()
             lexema_repr = repr(lexema)
             if len(lexema_repr) > 24:
                 lexema_repr = lexema_repr[:21] + "...'"
@@ -52,10 +52,10 @@ def formatar_saida_scanner(scanner: Scanner, texto_fonte: str, titulo: str = "An
 
     linhas.append("-" * 80)
     linhas.append("Diagnóstico:")
-    if scanner.errors:
-        linhas.append(f"{len(scanner.errors)} erro(s) léxico(s) encontrado(s):")
-        for err in scanner.errors:
-            linhas.append(f"  [ERRO LÉXICO] {err.diagnostic()}")
+    if scanner.erros:
+        linhas.append(f"{len(scanner.erros)} erro(s) léxico encontrado(s):")
+        for erro in scanner.erros:
+            linhas.append(f"  [ERRO LÉXICO] {erro.diagnostico()}")
     else:
         linhas.append("Nenhum erro léxico encontrado.")
 
@@ -64,42 +64,46 @@ def formatar_saida_scanner(scanner: Scanner, texto_fonte: str, titulo: str = "An
     tokens_jsonl = serialize_tokens_jsonl(scanner.tokens)
     linhas.append(tokens_jsonl if tokens_jsonl else "(vazio)")
 
-    if scanner.errors:
+    if scanner.erros:
         linhas.append("-" * 80)
         linhas.append("Saída em Formato JSONL (Erros):")
-        erros_jsonl = serialize_errors_jsonl(scanner.errors)
+        erros_jsonl = serialize_errors_jsonl(scanner.erros)
         linhas.append(erros_jsonl if erros_jsonl else "(vazio)")
 
     return "\n".join(linhas)
 
 
 def escanear_texto(texto: str, titulo: str = "Análise Léxica") -> str:
+    """Instancia o scanner para o texto informado e retorna o relatório impresso."""
     scanner = Scanner(texto)
     scanner.scan_tokens()
     return formatar_saida_scanner(scanner, texto, titulo)
 
 
 def executar_testes_embutidos() -> str:
-    fonte = "\n\n".join((TEST_CODE_1, TEST_CODE_2, TEST_CODE_3))
+    """Executa a bateria de código contida em `demo.py`."""
+    fonte = "\n\n".join((CODIGO_TESTE_1, CODIGO_TESTE_2, CODIGO_TESTE_3))
     return escanear_texto(fonte, "Testes Embutidos (demo.py)")
 
 
-def construir_visao_analise(texto_fonte: str, titulo: str, caminho: Path | None = None) -> AnalysisView:
+def construir_visao_analise(texto_fonte: str, titulo: str, caminho: Path | None = None) -> VisaoAnalise:
+    """Compila os dados da execução do Scanner na classe `VisaoAnalise` para consumo pela GUI."""
     scanner = Scanner(texto_fonte)
     scanner.scan_tokens()
-    resultado = AnalysisResult(tokens=scanner.tokens, errors=scanner.errors)
-    return AnalysisView(
-        title=titulo,
-        source=texto_fonte,
-        result=resultado,
-        formatted_output=formatar_saida_scanner(scanner, texto_fonte, titulo),
+    resultado = ResultadoAnalise(tokens=scanner.tokens, erros=scanner.erros)
+    return VisaoAnalise(
+        titulo=titulo,
+        fonte=texto_fonte,
+        resultado=resultado,
+        saida_formatada=formatar_saida_scanner(scanner, texto_fonte, titulo),
         tokens_jsonl=serialize_tokens_jsonl(scanner.tokens),
-        errors_jsonl=serialize_errors_jsonl(scanner.errors) if scanner.errors else "",
-        source_path=caminho,
+        erros_jsonl=serialize_errors_jsonl(scanner.erros) if scanner.erros else "",
+        caminho_fonte=caminho,
     )
 
 
 def executar_modo_terminal(argumentos: list[str]) -> int:
+    """Execução CLI do módulo quando acionado no terminal."""
     caminho_arquivo: str | None = None
     mostrar_apenas_tokens = False
     mostrar_apenas_erros = False
@@ -138,8 +142,8 @@ def executar_modo_terminal(argumentos: list[str]) -> int:
             saida_tokens = serialize_tokens_jsonl(scanner.tokens)
             if saida_tokens:
                 print(saida_tokens)
-        if not mostrar_apenas_tokens and scanner.errors:
-            saida_erros = serialize_errors_jsonl(scanner.errors)
+        if not mostrar_apenas_tokens and scanner.erros:
+            saida_erros = serialize_errors_jsonl(scanner.erros)
             if saida_erros:
                 print(saida_erros, file=sys.stderr)
     elif mostrar_apenas_tokens:
@@ -147,28 +151,29 @@ def executar_modo_terminal(argumentos: list[str]) -> int:
         print(cabecalho)
         print("-" * len(cabecalho))
         for token in scanner.tokens:
-            nome, lexema, linha, coluna, atributo = token.as_row()
+            nome, lexema, linha, coluna, atributo = token.para_linha_tabela()
             print(f"{nome:<14}{repr(lexema):<26}{linha:<7}{coluna:<8}{atributo}")
     elif mostrar_apenas_erros:
-        if scanner.errors:
-            for err in scanner.errors:
-                print(f"[ERRO LÉXICO] {err.diagnostic()}", file=sys.stderr)
+        if scanner.erros:
+            for erro in scanner.erros:
+                print(f"[ERRO LÉXICO] {erro.diagnostico()}", file=sys.stderr)
         else:
             print("Nenhum erro léxico encontrado.")
     else:
         print(formatar_saida_scanner(scanner, conteudo, f"Arquivo: {caminho.name}"))
 
-    return 2 if scanner.has_errors() else 0
+    return 2 if scanner.possui_erros() else 0
 
 
-class LexerApp(tk.Tk):
+class AplicacaoLexer(tk.Tk):
+    """Interface gráfica interativa desenvolvida em Tkinter."""
     def __init__(self) -> None:
         super().__init__()
         self.title("MiniC - Analisador Léxico")
         self.geometry("1100x780")
         self.minsize(950, 600)
         self.configure(bg="#f2f4f7")
-        self._visao_atual: AnalysisView | None = None
+        self._visao_atual: VisaoAnalise | None = None
         self._construir_interface()
 
     def _construir_interface(self) -> None:
@@ -226,12 +231,13 @@ class LexerApp(tk.Tk):
         self.txt_erros = scrolledtext.ScrolledText(aba_erros, wrap=tk.WORD, state="disabled", font=("Consolas", 10))
         self.txt_erros.pack(fill=tk.BOTH, expand=True, padx=4, pady=4)
 
-    def _renderizar_visao(self, visao: AnalysisView) -> None:
+    def _renderizar_visao(self, visao: VisaoAnalise) -> None:
+        """Renderiza a estrutura da visão nos componentes de texto da interface."""
         self._visao_atual = visao
 
         self.txt_formatado.configure(state="normal")
         self.txt_formatado.delete("1.0", tk.END)
-        self.txt_formatado.insert(tk.END, visao.formatted_output)
+        self.txt_formatado.insert(tk.END, visao.saida_formatada)
         self.txt_formatado.configure(state="disabled")
 
         self.txt_json.configure(state="normal")
@@ -241,11 +247,11 @@ class LexerApp(tk.Tk):
 
         self.txt_erros.configure(state="normal")
         self.txt_erros.delete("1.0", tk.END)
-        self.txt_erros.insert(tk.END, visao.errors_jsonl or "Nenhum erro léxico encontrado.")
+        self.txt_erros.insert(tk.END, visao.erros_jsonl or "Nenhum erro léxico encontrado.")
         self.txt_erros.configure(state="disabled")
 
     def executar_testes(self) -> None:
-        fonte = "\n\n".join((TEST_CODE_1, TEST_CODE_2, TEST_CODE_3))
+        fonte = "\n\n".join((CODIGO_TESTE_1, CODIGO_TESTE_2, CODIGO_TESTE_3))
         visao = construir_visao_analise(fonte, "Testes Embutidos (demo.py)")
         self._renderizar_visao(visao)
 
@@ -292,11 +298,11 @@ def main() -> int:
         return executar_modo_terminal(sys.argv[1:])
 
     try:
-        app = LexerApp()
+        app = AplicacaoLexer()
         app.mainloop()
         return 0
     except tk.TclError:
-        print("Tkinter não pôde iniciar. Executando em modo texto.")
+        print("Interface Tkinter indisponível. Executando modo texto demonstrativo.")
         print(executar_testes_embutidos())
         return 0
 

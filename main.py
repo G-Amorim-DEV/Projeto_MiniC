@@ -11,6 +11,9 @@ Modos de Execução:
    python main.py arquivo.minic --tokens
    python main.py arquivo.minic --errors
    python main.py arquivo.minic --jsonl
+   python main.py arquivo.minic --parse     (roda o parser e informa OK/erros sintáticos)
+   python main.py arquivo.minic --ast       (roda o parser e imprime a AST em árvore)
+   python main.py arquivo.minic --ast --sexp (imprime a AST em forma parentetizada)
 
 2. Interface Gráfica (Tkinter):
    python main.py
@@ -48,6 +51,8 @@ else:
 try:
     from ProjetoMiniC.src.lexer.jsonl_serializer import serialize_errors_jsonl, serialize_tokens_jsonl
     from ProjetoMiniC.src.lexer.scanner import Scanner
+    from ProjetoMiniC.src.parser.parser import Parser
+    from ProjetoMiniC.src.ast.printer import print_tree, to_sexp
 except ModuleNotFoundError as exc:
     print(f"Erro de importação no compilador: {exc}", file=sys.stderr)
     sys.exit(1)
@@ -62,6 +67,9 @@ def executar_terminal(argumentos: list[str]) -> int:
     mostrar_tokens = False
     mostrar_erros = False
     modo_jsonl = False
+    mostrar_ast = False
+    apenas_parse = False
+    formato_sexp = False
 
     for arg in argumentos:
         if arg == "--tokens":
@@ -70,11 +78,18 @@ def executar_terminal(argumentos: list[str]) -> int:
             mostrar_erros = True
         elif arg == "--jsonl":
             modo_jsonl = True
+        elif arg == "--ast":
+            mostrar_ast = True
+        elif arg == "--parse":
+            apenas_parse = True
+        elif arg == "--sexp":
+            formato_sexp = True
         elif not arg.startswith("--") and caminho_alvo is None:
             caminho_alvo = arg
 
     if not caminho_alvo:
-        print("Uso: python main.py <arquivo.minic> [--tokens] [--errors] [--jsonl]", file=sys.stderr)
+        print("Uso: python main.py <arquivo.minic> [--tokens] [--errors] [--jsonl] [--parse] [--ast] [--sexp]",
+              file=sys.stderr)
         return 1
 
     arquivo = Path(caminho_alvo)
@@ -91,14 +106,43 @@ def executar_terminal(argumentos: list[str]) -> int:
     scanner = Scanner(conteudo)
     scanner.scan_tokens()
 
+    # ------------------------------------------------------------------
+    # Etapa 2: Parser + AST (não substitui os modos do lexer já existentes)
+    # ------------------------------------------------------------------
+    if mostrar_ast or apenas_parse:
+        parser = Parser(scanner.tokens)
+        programa = parser.parse()
+
+        if scanner.possui_erros():
+            print(f"{len(scanner.erros)} erro(s) léxico(s) encontrado(s):", file=sys.stderr)
+            for err in scanner.erros:
+                print(f"  [ERRO LÉXICO] {err.diagnostico()}", file=sys.stderr)
+
+        if parser.possui_erros():
+            print(f"{len(parser.erros)} erro(s) sintático(s) encontrado(s):", file=sys.stderr)
+            for err in parser.erros:
+                print(f"  [ERRO SINTÁTICO] {err.diagnostico()}", file=sys.stderr)
+        elif apenas_parse and not mostrar_ast:
+            print("Análise sintática concluída sem erros.")
+
+        if mostrar_ast:
+            if formato_sexp:
+                print(to_sexp(programa))
+            else:
+                print(print_tree(programa))
+
+        if scanner.possui_erros():
+            return 2
+        return 3 if parser.possui_erros() else 0
+
     # Formato JSONL (padrão dos fixtures do professor)
     if modo_jsonl:
         if not mostrar_erros:
             saida_tokens = serialize_tokens_jsonl(scanner.tokens)
             if saida_tokens:
                 print(saida_tokens)
-        if not mostrar_tokens and scanner.errors:
-            saida_erros = serialize_errors_jsonl(scanner.errors)
+        if not mostrar_tokens and scanner.erros:
+            saida_erros = serialize_errors_jsonl(scanner.erros)
             if saida_erros:
                 print(saida_erros, file=sys.stderr)
 
@@ -107,14 +151,14 @@ def executar_terminal(argumentos: list[str]) -> int:
         print(cabecalho)
         print("-" * len(cabecalho))
         for tok in scanner.tokens:
-            nome, lexema, linha, coluna, attr = tok.as_row()
+            nome, lexema, linha, coluna, attr = tok.para_linha_tabela()
             print(f"{nome:<14}{repr(lexema):<26}{linha:<7}{coluna:<8}{attr}")
 
     elif mostrar_erros:
-        if scanner.errors:
-            print(f"{len(scanner.errors)} erro(s) léxico(s) encontrado(s):", file=sys.stderr)
-            for err in scanner.errors:
-                print(f"  [ERRO LÉXICO] {err.diagnostic()}", file=sys.stderr)
+        if scanner.erros:
+            print(f"{len(scanner.erros)} erro(s) léxico(s) encontrado(s):", file=sys.stderr)
+            for err in scanner.erros:
+                print(f"  [ERRO LÉXICO] {err.diagnostico()}", file=sys.stderr)
         else:
             print("Nenhum erro léxico encontrado.")
 
@@ -123,12 +167,12 @@ def executar_terminal(argumentos: list[str]) -> int:
         print(f"Análise Léxica - Arquivo: {arquivo.name}")
         print("=" * 80)
         print("Tokens reconhecidos:")
-        scanner.print_tokens()
+        scanner.imprimir_tokens()
         print("-" * 80)
         print("Diagnóstico:")
-        scanner.print_errors()
+        scanner.imprimir_erros()
 
-    return 2 if scanner.has_errors() else 0
+    return 2 if scanner.possui_erros() else 0
 
 
 # ======================================================================

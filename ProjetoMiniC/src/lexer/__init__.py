@@ -17,33 +17,34 @@ Uso básico:
     tokens = scanner.scan_tokens()
 """
 
-from .analysis_result import AnalysisResult
+from .analysis_result import ResultadoAnalise, VisaoAnalise
 from .errors import (
-    InvalidIdentifierError,
-    InvalidSymbolError,
-    LexicalError,
-    MalformedRealLiteralError,
-    UnterminatedCharError,
-    UnterminatedCommentError,
-    UnterminatedStringError,
+    ErroCaractereNaoTerminado,
+    ErroCadeiaNaoTerminada,
+    ErroComentarioNaoTerminado,
+    ErroIdentificadorInvalido,
+    ErroLexico,
+    ErroLiteralRealMalformado,
+    ErroSimboloInvalido,
 )
 from .scanner import Scanner
-from .token_types import RESERVED_WORDS, TokenType
+from .token_types import PALAVRAS_RESERVADAS, TokenType
 from .tokens import Token
 
 __all__ = [
     "Scanner",
     "Token",
     "TokenType",
-    "RESERVED_WORDS",
-    "AnalysisResult",
-    "LexicalError",
-    "InvalidSymbolError",
-    "InvalidIdentifierError",
-    "MalformedRealLiteralError",
-    "UnterminatedStringError",
-    "UnterminatedCommentError",
-    "UnterminatedCharError",
+    "PALAVRAS_RESERVADAS",
+    "ResultadoAnalise",
+    "VisaoAnalise",
+    "ErroLexico",
+    "ErroSimboloInvalido",
+    "ErroIdentificadorInvalido",
+    "ErroLiteralRealMalformado",
+    "ErroCadeiaNaoTerminada",
+    "ErroComentarioNaoTerminado",
+    "ErroCaractereNaoTerminado",
 ]
 
 __version__ = "1.0.0"
