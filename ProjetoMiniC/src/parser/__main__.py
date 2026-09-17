@@ -35,6 +35,7 @@ int main() {
 @dataclass
 class ResultadoSintatico:
     ast: str
+    arvore_descendente: str
     diagnosticos: list[str]
     tokens: list[str]
     codigo_saida: int
@@ -57,6 +58,7 @@ def analisar_fonte(fonte: str) -> ResultadoSintatico:
     if scanner.errors:
         return ResultadoSintatico(
             ast="",
+            arvore_descendente="",
             diagnosticos=["[ERRO LÉXICO] " + erro.diagnostic() for erro in scanner.errors],
             tokens=tokens,
             codigo_saida=2,
@@ -67,6 +69,7 @@ def analisar_fonte(fonte: str) -> ResultadoSintatico:
     if parser.errors:
         return ResultadoSintatico(
             ast="",
+            arvore_descendente=parser.trace_text(),
             diagnosticos=[str(erro) for erro in parser.errors],
             tokens=tokens,
             codigo_saida=3,
@@ -74,6 +77,7 @@ def analisar_fonte(fonte: str) -> ResultadoSintatico:
 
     return ResultadoSintatico(
         ast=arvore.to_sexpr() if arvore is not None else "",
+        arvore_descendente=parser.trace_text(),
         diagnosticos=[],
         tokens=tokens,
         codigo_saida=0,
@@ -123,6 +127,7 @@ class ParserApp(tk.Tk):
         self.abas = ttk.Notebook(container)
         self.abas.pack(fill=tk.BOTH, expand=True)
         self.saida_ast = self._adicionar_aba("AST")
+        self.saida_arvore = self._adicionar_aba("Árvore Descendente")
         self.saida_erros = self._adicionar_aba("Diagnósticos")
         self.saida_tokens = self._adicionar_aba("Tokens")
 
@@ -149,6 +154,10 @@ class ParserApp(tk.Tk):
         self._resultado = resultado
         self._preencher(self.saida_ast, resultado.ast or "AST não gerada devido aos erros.")
         self._preencher(
+            self.saida_arvore,
+            resultado.arvore_descendente or "Árvore não disponível devido a erro léxico.",
+        )
+        self._preencher(
             self.saida_erros,
             "\n".join(resultado.diagnosticos) or "Nenhum erro léxico ou sintático encontrado.",
         )
@@ -159,7 +168,7 @@ class ParserApp(tk.Tk):
         else:
             tipo = "léxico" if resultado.codigo_saida == 2 else "sintático"
             self.status.configure(text="Análise concluída com erro {}.".format(tipo), foreground="#a12622")
-            self.abas.select(1)
+            self.abas.select(2)
 
     def abrir_arquivo(self) -> None:
         caminho = filedialog.askopenfilename(
@@ -189,7 +198,7 @@ class ParserApp(tk.Tk):
     def limpar(self) -> None:
         self.campo_fonte.delete("1.0", tk.END)
         self._resultado = None
-        for campo in (self.saida_ast, self.saida_erros, self.saida_tokens):
+        for campo in (self.saida_ast, self.saida_arvore, self.saida_erros, self.saida_tokens):
             self._preencher(campo, "")
         self.status.configure(text="Pronto para analisar.", foreground="#40536d")
 

@@ -1,99 +1,151 @@
 # Projeto MiniC
 
-Este repositório reúne uma implementação do compilador MiniC em duas linguagens:
+Compilador para a linguagem **MiniC** (um subconjunto de C), desenvolvido em duas implementações paralelas:
 
-- Python
-- C
+- **Python** — implementação principal, em `ProjetoMiniC/src`
+- **C** — implementação do analisador léxico, em `C/`
 
-O objetivo do projeto é desenvolver uma ferramenta para análise de código em linguagem C, cobrindo etapas fundamentais de compilação, como:
+O objetivo é construir, em etapas, um pipeline de compilação completo: análise léxica, análise sintática, análise semântica, geração de código intermediário, otimização e geração de código final.
 
-- identificação de tokens
-- análise léxica
-- análise sintática
-- análise semântica
+## Estado atual
 
-## Visão geral
+| Etapa | Python | C |
+|---|---|---|
+| Análise léxica | ✅ Implementada | ✅ Implementada |
+| Análise sintática | ✅ Parser descendente recursivo | ✅ Implementada |
+| Análise semântica | 🚧 Estrutura criada (`src/semantic`), ainda não implementada | — |
+| AST | ✅ Implementada | ✅ Implementada |
+| Geração de código / IR / otimização | 🚧 Estruturas criadas (`src/codegen`, `src/ir`, `src/optimizer`) | — |
 
-O projeto está organizado em subpastas por linguagem e por módulos do compilador. A parte em Python já contém a estrutura base do lexer, além de uma interface em Tkinter para testar a análise léxica com diferentes entradas.
+O lexer é o módulo mais maduro do projeto e serve de referência para os demais.
 
 ## Estrutura do repositório
 
 ```text
 Projeto_MiniC/
-├── README.md
-├── ProjetoMiniC/
-│   ├── Python/
-│   │   ├── README.md
-│   │   ├── src/
-│   │   │   ├── lexer/
-│   │   │   │   ├── __main__.py
-│   │   │   │   ├── demo.py
-│   │   │   │   ├── scanner.py
-│   │   │   │   ├── token_types.py
-│   │   │   │   ├── tokens.py
-│   │   │   │   └── errors.py
-│   │   │   ├── parser/
-│   │   │   ├── semantic/
-│   │   │   ├── ast/
-│   │   │   ├── codegen/
-│   │   │   ├── ir/
-│   │   │   └── optimizer/
-│   │   └── docs/
-│   └── C/
+├── main.py                      # Ponto de entrada raiz (CLI + GUI) da versão Python
+├── scanner.py                   # Ponto de entrada alternativo, com resolução automática de path
+├── Makefile                     # Build da versão em C (deve ser executado a partir de C/)
+├── C/                            # Implementação do lexer em C
+│   ├── main.c
+│   ├── scanner.c / scanner.h
+│   ├── token.c / token.h
+│   ├── token_types.c / token_types.h
+│   ├── errors.c / errors.h
+│   └── util.c / util.h
+└── ProjetoMiniC/                # Implementação em Python + recursos do projeto
+    ├── docs/                     # Especificação, gramática (EBNF) e notas de arquitetura
+    ├── casos-programas-c/        # Programas .c válidos usados como casos de teste
+    ├── casos-invalidos/          # Casos .minic com erros léxicos propositais
+    └── src/
+        ├── lexer/                # Análise léxica (scanner, tokens, erros, JSONL, GUI)
+        ├── parser/                # (em construção)
+        ├── semantic/              # (em construção)
+        ├── ast/                   # (em construção)
+        ├── codegen/                # (em construção)
+        ├── ir/                     # (em construção)
+        └── optimizer/               # (em construção)
 ```
 
 ## Executando a versão em Python
 
-Acesse a pasta do projeto Python:
+Requer Python 3.10+ (o projeto usa `from __future__ import annotations`) e Tkinter instalado para a interface gráfica.
 
-```powershell
-cd "C:\Users\guilherme.lima\OneDrive - Alpargatas S.A\Documentos\GitHub\Projeto_MiniC\ProjetoMiniC\Python"
+A partir da raiz do repositório:
+
+```bash
+python main.py
 ```
 
-Se o ambiente ainda não tiver o Python configurado, use o `uv` para instalar uma versão funcional:
+- Sem argumentos: abre o painel gráfico (Tkinter), com atalhos para cada etapa do compilador (as etapas ainda não implementadas exibem um aviso).
+- Com um arquivo como argumento: roda a análise léxica em modo terminal.
 
-```powershell
-uv python install 3.12
+```bash
+python main.py caminho/para/arquivo.minic
+python main.py caminho/para/arquivo.minic --tokens   # imprime só a tabela de tokens
+python main.py caminho/para/arquivo.minic --errors   # imprime só os erros léxicos
+python main.py caminho/para/arquivo.minic --jsonl    # imprime tokens/erros em JSONL
 ```
 
-Depois execute o analisador léxico com a interface gráfica:
+Alternativamente, é possível rodar o pacote do lexer diretamente, a partir da pasta `ProjetoMiniC`:
 
-```powershell
-uv run python -m src.lexer
+```bash
+cd ProjetoMiniC
+python -m src.lexer                                   # abre a interface gráfica do lexer
+python -m src.lexer ../ProjetoMiniC/casos-invalidos/i01_simbolo_desconhecido.minic --jsonl
 ```
 
-## Interface de uso
+### Interface gráfica do lexer
 
-A entrada principal em `src.lexer` agora oferece uma interface em Tkinter com três opções:
+A interface em Tkinter (`AplicacaoLexer`, em `src/lexer/__main__.py`) permite:
 
-1. executar os testes embutidos do lexer;
-2. colar um trecho de código na própria interface e analisar;
-3. abrir um arquivo `.py` para realizar a análise léxica.
+1. executar os testes embutidos do lexer (`demo.py`);
+2. colar um trecho de código diretamente na interface e analisá-lo;
+3. abrir um arquivo `.minic`, `.mc`, `.c` ou `.txt` e analisá-lo;
+4. visualizar a saída formatada, os tokens em JSONL e os erros em JSONL em abas separadas, além de copiar o JSONL de tokens para a área de transferência.
 
-A saída mostra os tokens reconhecidos e os erros léxicos encontrados, mantendo o fluxo de depuração do compilador.
+## Executando a versão em C
 
-## O que o lexer faz
+A versão em C implementa o mesmo analisador léxico. O `Makefile`, na raiz do repositório, foi escrito para ser executado com o diretório de trabalho dentro de `C/`:
 
-O módulo de lexer está responsável por:
+```bash
+cd C
+make -f ../Makefile          # compila o binário minic_scanner
+./minic_scanner arquivo.c              # saída legível (tabela de tokens + diagnóstico)
+./minic_scanner arquivo.c --jsonl      # saída apenas em JSONL (tokens no stdout, erros no stderr)
+```
 
-- percorrer o código-fonte caractere por caractere
-- reconhecer palavras reservadas, identificadores, números e operadores
-- identificar strings, caracteres e comentários
-- registrar erros léxicos como símbolos inválidos, strings não fechadas e comentários sem fechamento
-- produzir a lista de tokens para etapas posteriores do compilador
+Alvos adicionais do Makefile (executados também a partir de `C/`):
 
-## Observações
+```bash
+make -f ../Makefile test-valid    # roda o scanner sobre os programas em casos-programas-c/
+make -f ../Makefile test-invalid  # roda o scanner sobre os casos em casos-invalidos/
+make -f ../Makefile test          # roda os dois conjuntos de teste
+make -f ../Makefile clean         # remove binários e arquivos de saída gerados
+```
 
-- O projeto ainda está em evolução e os módulos posteriores (parser, semântica e geração de código) continuam sendo estruturados.
-- A parte em Python é a base mais avançada no momento e funciona como referência para os demais módulos.
-- A interface gráfica facilita os testes de entrada e diagnóstico em um fluxo visual e prático.
+## O que o lexer reconhece
+
+- palavras reservadas, identificadores, números inteiros e reais, operadores e delimitadores;
+- strings e caracteres, incluindo casos malformados;
+- comentários de linha e de bloco;
+- erros léxicos, como símbolos desconhecidos, comentários não terminados, strings/caracteres não terminados, números reais malformados e identificadores iniciados por dígito.
+
+Cada token reconhecido carrega tipo, lexema, atributo (quando aplicável), linha e coluna. A saída pode ser formatada em tabela ou serializada em JSONL, seguindo o mesmo formato entre as versões Python e C.
+
+## Casos de teste
+
+- `ProjetoMiniC/casos-programas-c/`: programas `.c` válidos (Fibonacci, números primos, média de vetor, menu interativo, controle de temperatura), cada um com o `.expected.jsonl` correspondente.
+- `ProjetoMiniC/casos-invalidos/`: trechos `.minic` com erros léxicos propositais, cada um com `.expected.jsonl` (tokens esperados) e `.errors.jsonl` (erros esperados).
+
+## Documentação
+
+- `ProjetoMiniC/docs/README.md`: detalhes específicos da implementação em Python.
+- `ProjetoMiniC/docs/gramatica.ebnf`: gramática da linguagem MiniC.
+- `ProjetoMiniC/docs/especificacao.md` e `docs/arquitetura.md`: ainda a serem preenchidos.
 
 ## Análise sintática — Etapa 2
 
-O parser consome diretamente os `Token` produzidos pelo lexer e constrói uma
-AST tipada para declarações, funções, comandos e expressões. A saída de linha
-de comando é uma S-expression, por exemplo
-`Program(Function(int main() Block(Return(Lit(0)))))`.
+O parser descendente recursivo consome diretamente os `Token` produzidos pelo
+scanner e constrói uma AST tipada para declarações, funções, comandos e
+expressões. O fluxo implementado é:
+
+```text
+Código fonte
+    ↓
+Scanner
+    ↓
+Tokens
+    ↓
+Parser descendente recursivo
+    ↓
+AST / Diagnóstico
+```
+
+A **AST** é a representação abstrata final usada pelo compilador. A aba
+**Árvore Descendente** é uma visualização didática separada: ela registra as
+regras realmente percorridas durante a análise, inclusive a cadeia de
+precedência das expressões. Ela não substitui nem altera a AST.
 
 ```bash
 # Python (somente biblioteca padrão)
@@ -107,9 +159,23 @@ make parser
 make test-parser
 ```
 
+Os 50 casos oficiais e suas saídas esperadas estão em
+`testes-parser-50/testes-parser-50/casos`. Para executá-los:
+
+```bash
+python test_parser_50.py
+python test_parser_50.py testes-parser-50/testes-parser-50/casos
+python test_parser_50.py --detalhado
+```
+
+O runner compara exatamente a AST dos casos 01–25 e também confere o motivo do
+diagnóstico nos casos 26–50. O modo detalhado mostra entrada, AST, diagnóstico,
+tokens e Árvore Descendente de cada caso.
+
 Na interface principal (`python3 main.py`), o botão **Análise Sintática** abre
 uma tela própria para digitar ou carregar um arquivo, executar o parser e
-consultar a AST, os diagnósticos com linha/coluna e os tokens reconhecidos.
+consultar a AST, a Árvore Descendente, os diagnósticos com linha/coluna e os
+tokens reconhecidos.
 
 Os códigos de saída são: `0` para sucesso, `1` para uso/leitura inválidos,
 `2` para erro léxico e `3` para erro sintático. A versão C usa apenas a
@@ -120,12 +186,11 @@ sintático.
 Os testes de regressão cobrem declarações globais e locais (inclusive listas
 separadas por vírgula), vetores, funções, parâmetros, controle de fluxo,
 entrada/saída, chamadas, indexação, precedência e associatividade. Além de
-aceitar ou rejeitar cada caso, eles verificam que as duas implementações
-produzem exatamente a mesma representação textual da AST.
+aceitar ou rejeitar cada caso, eles verificam precedência, associatividade e o
+contrato de execução das implementações.
 
 ## Tecnologias
 
-- Python
-- Tkinter
-- uv (gerenciamento de ambiente Python)
-- Git / GitHub para versionamento
+- Python 3 + Tkinter (interface gráfica)
+- C11 (gcc, make)
+- JSONL como formato de intercâmbio de tokens/erros entre as implementações e os casos de teste

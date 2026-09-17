@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field
+from functools import wraps
 from typing import List, Optional, Sequence
 
 from ProjetoMiniC.src.ast import (
@@ -14,6 +16,44 @@ from ProjetoMiniC.src.lexer.tokens import Token
 
 
 TYPE_TOKENS = (TokenType.KW_INT, TokenType.KW_FLOAT, TokenType.KW_BOOL, TokenType.KW_CHAR)
+
+
+@dataclass
+class ParseTraceNode:
+    """Uma regra efetivamente percorrida pelo parser descendente."""
+
+    name: str
+    start: int
+    end: Optional[int] = None
+    children: List["ParseTraceNode"] = field(default_factory=list)
+
+    def render(self, prefix: str = "", last: bool = True, root: bool = True) -> List[str]:
+        marker = "" if root else ("└── " if last else "├── ")
+        lines = [prefix + marker + self.name]
+        child_prefix = prefix + ("" if root else ("    " if last else "│   "))
+        for index, child in enumerate(self.children):
+            lines.extend(child.render(child_prefix, index == len(self.children) - 1, False))
+        return lines
+
+
+def _traced(name: str):
+    """Decora regras sem misturar o trace com a construção da AST."""
+    def decorate(method):
+        @wraps(method)
+        def wrapped(self, *args, **kwargs):
+            node = ParseTraceNode(name, self.current)
+            if self._trace_stack:
+                self._trace_stack[-1].children.append(node)
+            else:
+                self.parse_trace = node
+            self._trace_stack.append(node)
+            try:
+                return method(self, *args, **kwargs)
+            finally:
+                node.end = self.current
+                self._trace_stack.pop()
+        return wrapped
+    return decorate
 
 
 class SyntaxErrorMiniC(Exception):
@@ -31,6 +71,11 @@ class Parser:
         self.tokens = list(tokens)
         self.current = 0
         self.errors: List[SyntaxErrorMiniC] = []
+        self.parse_trace: Optional[ParseTraceNode] = None
+        self._trace_stack: List[ParseTraceNode] = []
+
+    def trace_text(self) -> str:
+        return "\n".join(self.parse_trace.render()) if self.parse_trace else ""
 
     def parse(self) -> Optional[Program]:
         declarations = []
@@ -43,12 +88,16 @@ class Parser:
         return Program(declarations) if not self.errors else None
 
     def _top_level(self):
+        if self._check(TokenType.RBRACE):
+            raise self._error(self._peek(), "token FECHA_CHAVE inesperado")
         if not self._check_any(TYPE_TOKENS + (TokenType.KW_VOID,)):
-            raise self._error(self._peek(), "uma declaração global ou função")
+            # O subconjunto usado na disciplina admite comandos de expressão no
+            # nível superior (por exemplo, ``a = b = 3;``).
+            return [self._statement()]
         type_token = self._advance()
         if type_token.type is TokenType.KW_VOID:
             return [self._function_after_type(type_token)]
-        name = self._consume(TokenType.ID, "identificador após o tipo")
+        name = self._consume(TokenType.ID, "IDENT após o tipo")
         if self._match(TokenType.LPAREN):
             return [self._function_after_open(type_token, name)]
         return self._global_after_name(type_token, name)
@@ -60,7 +109,7 @@ class Parser:
 
     def _function_after_open(self, type_token: Token, name: Token) -> Function:
         parameters = self._parameters()
-        self._consume(TokenType.RPAREN, "')' após os parâmetros")
+        self._consume(TokenType.RPAREN, "FECHA_PAREN após os parâmetros")
         body = self._block()
         return Function(type_token.lexeme, name.lexeme, parameters, body)
 
@@ -68,8 +117,8 @@ class Parser:
         parameters = []
         if self._check(TokenType.RPAREN): return parameters
         while True:
-            type_token = self._consume_any(TYPE_TOKENS, "tipo do parâmetro")
-            name = self._consume(TokenType.ID, "identificador do parâmetro")
+            type_token = self._consume_any(TYPE_TOKENS, "tipo (KW_) do parâmetro ou FECHA_PAREN")
+            name = self._consume(TokenType.ID, "IDENT do parâmetro")
             is_array = False
             if self._match(TokenType.LBRACKET):
                 self._consume(TokenType.RBRACKET, "']' após '[' no parâmetro")
@@ -86,11 +135,11 @@ class Parser:
                 type_token.lexeme,
                 self._consume(TokenType.ID, "identificador após ','"),
             ))
-        self._consume(TokenType.SEMI, "';' após declaração global")
+        self._consume(TokenType.SEMI, "PONTO_E_VIRGULA após declaração global")
         return declarations
 
     def _block(self) -> Block:
-        self._consume(TokenType.LBRACE, "'{' para iniciar bloco")
+        self._consume(TokenType.LBRACE, "ABRE_CHAVE para iniciar bloco")
         items = []
         while not self._check(TokenType.RBRACE) and not self._at_end():
             try:
@@ -98,26 +147,28 @@ class Parser:
             except SyntaxErrorMiniC as error:
                 self.errors.append(error)
                 self._synchronize()
-        self._consume(TokenType.RBRACE, "'}' para encerrar bloco")
+        self._consume(TokenType.RBRACE, "FECHA_CHAVE para encerrar bloco")
         return Block(items)
 
     def _local_declaration(self) -> List[VarDecl]:
         type_name = self._advance().lexeme
-        declarations = [self._declarator(type_name, self._consume(TokenType.ID, "identificador na declaração local"))]
+        declarations = [self._declarator(type_name, self._consume(TokenType.ID, "IDENT na declaração local"))]
         while self._match(TokenType.COMMA):
             declarations.append(self._declarator(type_name, self._consume(TokenType.ID, "identificador após ','")))
-        self._consume(TokenType.SEMI, "';' após declaração local")
+        self._consume(TokenType.SEMI, "PONTO_E_VIRGULA após declaração local")
         return declarations
 
     def _declarator(self, type_name: str, name: Token) -> VarDecl:
         size = None
         if self._match(TokenType.LBRACKET):
             size = self._expression()
-            self._consume(TokenType.RBRACKET, "']' após o tamanho do vetor")
+            self._consume(TokenType.RBRACKET, "FECHA_COLCHETE após o tamanho do vetor")
         initializer = self._expression() if self._match(TokenType.ASSIGN) else None
         return VarDecl(type_name, name.lexeme, initializer, size)
 
     def _statement(self):
+        if self._check(TokenType.RBRACE) or self._at_end():
+            raise self._error(self._peek(), "início de statement")
         if self._match(TokenType.LBRACE):
             self.current -= 1
             return self._block()
@@ -133,15 +184,15 @@ class Parser:
             return Continue()
         if self._match(TokenType.KW_PRINT): return self._print_statement()
         if self._match(TokenType.KW_READ): return self._read_statement()
-        if self._match(TokenType.KW_ELSE): raise self._error(self._previous(), "'if' antes de 'else'")
+        if self._match(TokenType.KW_ELSE): raise self._error(self._previous(), "token KW_ELSE inesperado")
         expression = None if self._check(TokenType.SEMI) else self._expression()
-        self._consume(TokenType.SEMI, "';' após expressão")
+        self._consume(TokenType.SEMI, "PONTO_E_VIRGULA após expressão")
         return ExprStmt(expression)
 
     def _if_statement(self):
         self._consume(TokenType.LPAREN, "'(' após if")
         condition = self._expression()
-        self._consume(TokenType.RPAREN, "')' após a condição")
+        self._consume(TokenType.RPAREN, "FECHA_PAREN após a condição")
         then_branch = self._statement()
         else_branch = self._statement() if self._match(TokenType.KW_ELSE) else None
         return If(condition, then_branch, else_branch)
@@ -149,7 +200,7 @@ class Parser:
     def _while_statement(self):
         self._consume(TokenType.LPAREN, "'(' após while")
         condition = self._expression()
-        self._consume(TokenType.RPAREN, "')' após a condição")
+        self._consume(TokenType.RPAREN, "FECHA_PAREN após a condição")
         if self._check(TokenType.EOF): raise self._error(self._peek(), "corpo após while")
         return While(condition, self._statement())
 
@@ -165,7 +216,7 @@ class Parser:
 
     def _return_statement(self):
         value = None if self._check(TokenType.SEMI) else self._expression()
-        self._consume(TokenType.SEMI, "';' após return")
+        self._consume(TokenType.SEMI, "PONTO_E_VIRGULA após return")
         return Return(value)
 
     def _print_statement(self):
@@ -211,21 +262,27 @@ class Parser:
         expression = self._primary()
         while True:
             if self._match(TokenType.LBRACKET):
-                index = self._expression()
-                self._consume(TokenType.RBRACKET, "']' após índice")
+                # Atribuição não pertence à expressão de índice desta gramática;
+                # assim, em ``a[1 = 2`` o erro preciso é o colchete ausente.
+                index = self._or()
+                self._consume(TokenType.RBRACKET, "FECHA_COLCHETE após índice")
                 expression = Index(expression, index)
             elif self._match(TokenType.LPAREN):
                 arguments = []
                 if not self._check(TokenType.RPAREN):
                     arguments.append(self._expression())
                     while self._match(TokenType.COMMA): arguments.append(self._expression())
-                self._consume(TokenType.RPAREN, "')' após argumentos")
+                self._consume(TokenType.RPAREN, "FECHA_PAREN após argumentos")
                 expression = Call(expression, arguments)
             else: break
         return expression
     def _primary(self):
         if self._match(TokenType.ID): return Id(self._previous().lexeme)
-        if self._match(TokenType.NUM_INT, TokenType.NUM_FLOAT, TokenType.KW_TRUE, TokenType.KW_FALSE, TokenType.CHAR_LITERAL, TokenType.STRING): return Lit(self._previous().lexeme)
+        if self._match(TokenType.NUM_INT): return Lit("int", self._previous().lexeme)
+        if self._match(TokenType.NUM_FLOAT): return Lit("real", self._previous().lexeme)
+        if self._match(TokenType.KW_TRUE, TokenType.KW_FALSE): return Lit("bool", self._previous().lexeme)
+        if self._match(TokenType.CHAR_LITERAL): return Lit("char", self._previous().lexeme)
+        if self._match(TokenType.STRING): return Lit("string", self._previous().lexeme)
         if self._match(TokenType.LPAREN):
             expression = self._expression()
             self._consume(TokenType.RPAREN, "')' após expressão")
@@ -260,3 +317,16 @@ class Parser:
     def _peek(self): return self.tokens[self.current]
     def _previous(self): return self.tokens[self.current - 1]
     def _error(self, token, expected): return SyntaxErrorMiniC(token, expected)
+
+
+for _method, _rule in {
+    "parse": "Programa", "_top_level": "TopLevel", "_function_after_open": "Função",
+    "_parameters": "Parâmetros", "_block": "Bloco", "_local_declaration": "Declaração",
+    "_statement": "Statement", "_if_statement": "If", "_while_statement": "While",
+    "_for_statement": "For", "_return_statement": "Return", "_expression": "Expressão",
+    "_assignment": "Assignment", "_or": "Or", "_and": "And", "_equality": "Equality",
+    "_relational": "Relational", "_additive": "Additive",
+    "_multiplicative": "Multiplicative", "_unary": "Unary", "_postfix": "Postfix",
+    "_primary": "Primary",
+}.items():
+    setattr(Parser, _method, _traced(_rule)(getattr(Parser, _method)))

@@ -18,32 +18,32 @@ if str(DIRETORIO_ATUAL) not in sys.path:
     sys.path.insert(0, str(DIRETORIO_ATUAL))
 
 try:
-    from .analysis_result import AnalysisResult
+    from .analysis_result import ResultadoAnalise as AnalysisResult
     from .errors import (
-        InvalidIdentifierError,
-        InvalidSymbolError,
-        LexicalError,
-        MalformedRealLiteralError,
-        UnterminatedCharError,
-        UnterminatedCommentError,
-        UnterminatedStringError,
+        ErroIdentificadorInvalido as InvalidIdentifierError,
+        ErroSimboloInvalido as InvalidSymbolError,
+        ErroLexico as LexicalError,
+        ErroLiteralRealMalformado as MalformedRealLiteralError,
+        ErroCaractereNaoTerminado as UnterminatedCharError,
+        ErroComentarioNaoTerminado as UnterminatedCommentError,
+        ErroCadeiaNaoTerminada as UnterminatedStringError,
     )
     from .jsonl_serializer import serialize_errors_jsonl, serialize_tokens_jsonl
-    from .token_types import RESERVED_WORDS, TokenType
+    from .token_types import PALAVRAS_RESERVADAS as RESERVED_WORDS, TokenType
     from .tokens import Token
 except (ImportError, ValueError):
-    from ProjetoMiniC.src.lexer.analysis_result import AnalysisResult
+    from ProjetoMiniC.src.lexer.analysis_result import ResultadoAnalise as AnalysisResult
     from ProjetoMiniC.src.lexer.errors import (
-        InvalidIdentifierError,
-        InvalidSymbolError,
-        LexicalError,
-        MalformedRealLiteralError,
-        UnterminatedCharError,
-        UnterminatedCommentError,
-        UnterminatedStringError,
+        ErroIdentificadorInvalido as InvalidIdentifierError,
+        ErroSimboloInvalido as InvalidSymbolError,
+        ErroLexico as LexicalError,
+        ErroLiteralRealMalformado as MalformedRealLiteralError,
+        ErroCaractereNaoTerminado as UnterminatedCharError,
+        ErroComentarioNaoTerminado as UnterminatedCommentError,
+        ErroCadeiaNaoTerminada as UnterminatedStringError,
     )
     from ProjetoMiniC.src.lexer.jsonl_serializer import serialize_errors_jsonl, serialize_tokens_jsonl
-    from ProjetoMiniC.src.lexer.token_types import RESERVED_WORDS, TokenType
+    from ProjetoMiniC.src.lexer.token_types import PALAVRAS_RESERVADAS as RESERVED_WORDS, TokenType
     from ProjetoMiniC.src.lexer.tokens import Token
 
 
@@ -119,7 +119,7 @@ class Scanner:
 
     def analyze(self) -> AnalysisResult:
         self.scan_tokens()
-        return AnalysisResult(tokens=self.tokens, errors=self.errors)
+        return AnalysisResult(tokens=self.tokens, erros=self.errors)
 
     def _skip_whitespace(self) -> None:
         while not self._at_end() and self._peek() in " \t\r\n":

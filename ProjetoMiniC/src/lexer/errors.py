@@ -1,95 +1,98 @@
 """
 errors.py
 =========
-
-Hierarquia de erros léxicos e diagnósticos.
-Compatível com Python 3.8+.
+Classes de erro especializadas para captura e tratamento de problemas durante a análise léxica.
 """
 
 
-class LexicalError(Exception):
-    code: str = "LEXICAL_ERROR"
+class ErroLexico(Exception):
+    """Classe base para qualquer inconsistência léxica identificada no código."""
+    codigo: str = "ERRO_LEXICO"
 
-    def __init__(self, message: str, line: int, column: int, lexeme: str = ""):
-        self.message = message
-        self.line = line
-        self.column = column
-        self.lexeme = lexeme
-        self.code = self.__class__.code
-        super().__init__(self.diagnostic())
+    def __init__(self, mensagem: str, linha: int, coluna: int, lexema: str = ""):
+        self.mensagem = mensagem
+        self.linha = linha
+        self.coluna = coluna
+        self.lexema = lexema
+        self.codigo = self.__class__.codigo
+        super().__init__(self.diagnostico())
+
+    def diagnostico(self) -> str:
+        """Gera mensagem formatada indicando a posição exata e contexto do erro."""
+        origem = f" próximo de {self.lexema!r}" if self.lexema else ""
+        return f"linha {self.linha}, coluna {self.coluna}: {self.mensagem}{origem}"
 
     def diagnostic(self) -> str:
-        origem = f" próximo de {self.lexeme!r}" if self.lexeme else ""
-        return f"linha {self.line}, coluna {self.column}: {self.message}{origem}"
+        return self.diagnostico()
 
 
-class InvalidSymbolError(LexicalError):
-    code = "UNKNOWN_SYMBOL"
+class ErroSimboloInvalido(ErroLexico):
+    codigo = "UNKNOWN_SYMBOL"
 
-    def __init__(self, char: str, line: int, column: int):
+    def __init__(self, caractere: str, linha: int, coluna: int):
         super().__init__(
-            f"símbolo inválido '{char}' (caractere não reconhecido)",
-            line,
-            column,
-            char,
+            f"símbolo inválido '{caractere}' (caractere não reconhecido pela gramática)",
+            linha,
+            coluna,
+            caractere,
         )
 
 
-class InvalidIdentifierError(LexicalError):
-    code = "INVALID_IDENTIFIER"
+class ErroIdentificadorInvalido(ErroLexico):
+    codigo = "IDENTIFICADOR_INVALIDO"
 
-    def __init__(self, lexeme: str, line: int, column: int):
+    def __init__(self, lexema: str, linha: int, coluna: int):
         super().__init__(
-            "identificador inválido (não pode iniciar com dígitos)",
-            line,
-            column,
-            lexeme,
+            "identificador inválido (não é permitido iniciar identificadores com dígitos)",
+            linha,
+            coluna,
+            lexema,
         )
 
 
-class MalformedRealLiteralError(LexicalError):
-    code = "MALFORMED_REAL_LITERAL"
+class ErroLiteralRealMalformado(ErroLexico):
+    codigo = "MALFORMED_REAL_LITERAL"
 
-    def __init__(self, lexeme: str, line: int, column: int):
+    def __init__(self, lexema: str, linha: int, coluna: int):
         super().__init__(
-            "literal real malformado (faltou a parte decimal após '.')",
-            line,
-            column,
-            lexeme,
+            "literal real malformado (esperada parte decimal após o ponto '.')",
+            linha,
+            coluna,
+            lexema,
         )
 
 
-class UnterminatedStringError(LexicalError):
-    code = "UNTERMINATED_STRING_LITERAL"
+class ErroCadeiaNaoTerminada(ErroLexico):
+    codigo = "UNTERMINATED_STRING_LITERAL"
 
-    def __init__(self, partial: str, line: int, column: int):
+    def __init__(self, trecho_parcial: str, linha: int, coluna: int):
         super().__init__(
-            "cadeia de caracteres não terminada (faltou aspas duplas de fechamento)",
-            line,
-            column,
-            partial,
+            "cadeia de caracteres não terminada (ausência de aspas duplas de fechamento)",
+            linha,
+            coluna,
+            trecho_parcial,
         )
 
 
-class UnterminatedCommentError(LexicalError):
-    code = "UNTERMINATED_BLOCK_COMMENT"
+class ErroComentarioNaoTerminado(ErroLexico):
+    codigo = "UNTERMINATED_BLOCK_COMMENT"
 
-    def __init__(self, line: int, column: int, lexeme: str = ""):
+    def __init__(self, linha: int, coluna: int, lexema: str = ""):
         super().__init__(
-            "comentário de bloco não terminado (faltou '*/')",
-            line,
-            column,
-            lexeme,
+            "comentário de bloco não terminado (ausência do delimitador de fechamento '*/')",
+            linha,
+            coluna,
+            lexema,
         )
 
 
-class UnterminatedCharError(LexicalError):
-    code = "UNTERMINATED_CHAR_LITERAL"
+class ErroCaractereNaoTerminado(ErroLexico):
+    codigo = "UNTERMINATED_CHAR_LITERAL"
 
-    def __init__(self, partial: str, line: int, column: int):
+    def __init__(self, trecho_parcial: str, linha: int, coluna: int):
         super().__init__(
-            "literal de caractere malformado (faltou aspas simples ' de fechamento)",
-            line,
-            column,
-            partial,
+            "literal de caractere malformado (ausência de aspas simples ' de fechamento)",
+            linha,
+            coluna,
+            trecho_parcial,
         )
