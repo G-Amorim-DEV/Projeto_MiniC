@@ -165,31 +165,47 @@ static void scan_number(Scanner *s, int line, int col, char first_digit) {
 }
 
 static void scan_string(Scanner *s, int line, int col) {
-    char buffer[1024];
-    int len = 0;
+    DynStr raw, value;
+    dynstr_init(&raw);
+    dynstr_init(&value);
+    dynstr_push_char(&raw, '"');
     bool closed = false;
 
     while (!at_end(s)) {
         if (peek(s, 0) == '\n') break;
         if (peek(s, 0) == '"') {
             advance(s);
+            dynstr_push_char(&raw, '"');
             closed = true;
             break;
         }
-        if (len < 1023) buffer[len++] = advance(s);
-        else advance(s);
+        char ch = advance(s);
+        dynstr_push_char(&raw, ch);
+        if (ch == '\\' && !at_end(s) && peek(s, 0) != '\n') {
+            char escape = advance(s);
+            dynstr_push_char(&raw, escape);
+            if (strchr("nt\\\"'", escape) != NULL) {
+                dynstr_push_char(&value, escape == 'n' ? '\n' : (escape == 't' ? '\t' : escape));
+            } else {
+                dynstr_push_char(&value, '\\');
+                dynstr_push_char(&value, escape);
+            }
+        } else {
+            dynstr_push_char(&value, ch);
+        }
     }
-    buffer[len] = '\0';
 
     if (closed) {
-        char lexeme[1028];
-        snprintf(lexeme, sizeof(lexeme), "\"%s\"", buffer);
-        add_token(s, STRING, lexeme, line, col, buffer);
+        add_token(s, STRING, raw.data, line, col, value.data);
     } else {
-        char err_lex[1028];
-        snprintf(err_lex, sizeof(err_lex), "\"%s", buffer);
-        add_error(s, make_unterminated_string_error(err_lex, line, col));
+        add_error(s, make_unterminated_string_error(raw.data, line, col));
+        while (s->pos > 0 && strchr(") ;}]", s->source[s->pos - 1]) != NULL) {
+            s->pos--;
+            s->column--;
+        }
     }
+    dynstr_free(&raw);
+    dynstr_free(&value);
 }
 
 static void scan_char(Scanner *s, int line, int col) {
@@ -199,15 +215,31 @@ static void scan_char(Scanner *s, int line, int col) {
     }
 
     char ch = advance(s);
+    char raw[3] = {ch, '\0', '\0'};
+    if (ch == '\\') {
+        if (at_end(s) || peek(s, 0) == '\n') {
+            add_error(s, make_unterminated_char_error("'\\", line, col));
+            return;
+        }
+        char escape = advance(s);
+        raw[1] = escape;
+        if (strchr("nt\\\"'", escape) == NULL) {
+            char bad[4] = {'\'', '\\', escape, '\0'};
+            add_error(s, make_unterminated_char_error(bad, line, col));
+            return;
+        }
+        ch = escape == 'n' ? '\n' : (escape == 't' ? '\t' : escape);
+    }
     if (match(s, '\'')) {
         char lexeme[8];
         char attr[4] = {ch, '\0'};
-        snprintf(lexeme, sizeof(lexeme), "'%c'", ch);
+        snprintf(lexeme, sizeof(lexeme), "'%s'", raw);
         add_token(s, CHAR_LITERAL, lexeme, line, col, attr);
     } else {
         char lexeme[8];
         snprintf(lexeme, sizeof(lexeme), "'%c", ch);
         add_error(s, make_unterminated_char_error(lexeme, line, col));
+        if (peek(s, 0) == ';') advance(s);
     }
 }
 

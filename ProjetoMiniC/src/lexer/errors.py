@@ -22,6 +22,10 @@ class ErroLexico(Exception):
         origem = f" próximo de {self.lexema!r}" if self.lexema else ""
         return f"linha {self.linha}, coluna {self.coluna}: {self.mensagem}{origem}"
 
+    def diagnostic(self) -> str:
+        """Compatibility alias used by the parser CLI and graphical interface."""
+        return self.diagnostico()
+
 
 class ErroSimboloInvalido(ErroLexico):
     codigo = "UNKNOWN_SYMBOL"

@@ -2,9 +2,12 @@
 
 CC = gcc
 CFLAGS = -std=c11 -Wall -Wextra -pedantic -O2
-SRC = main.c scanner.c token.c token_types.c errors.c util.c
+SRC = C/main.c C/scanner.c C/token.c C/token_types.c C/errors.c C/util.c
 OBJ = $(SRC:.c=.o)
-TARGET = minic_scanner
+TARGET = C/minic_scanner
+PARSER_SRC = C/parser_main.c C/parser.c C/ast.c C/scanner.c C/token.c C/token_types.c C/errors.c C/util.c
+PARSER_TARGET = parser
+SEMANTIC_SRC = C/semantic_main.c C/semantic.c C/parser.c C/ast.c C/scanner.c C/token.c C/token_types.c C/errors.c C/util.c
 
 # Compatibilidade para comando de remoção no Windows e Linux
 ifeq ($(OS),Windows_NT)
@@ -19,6 +22,15 @@ TARGET_BIN = $(TARGET)$(EXT)
 
 all: $(TARGET_BIN)
 
+parser: $(PARSER_SRC)
+	$(CC) $(CFLAGS) -o $(PARSER_TARGET) $(PARSER_SRC)
+
+semantic: $(SEMANTIC_SRC) C/semantic.h C/ast.h C/parser.h
+	$(CC) $(CFLAGS) -o minic $(SEMANTIC_SRC)
+
+test-semantic:
+	python3 -m unittest discover -s tests -p test_semantic.py -v
+
 $(TARGET_BIN): $(OBJ)
 	$(CC) $(CFLAGS) -o $@ $(OBJ)
 
@@ -28,7 +40,7 @@ $(TARGET_BIN): $(OBJ)
 # Executa o scanner sobre todos os programas válidos de teste
 test-valid: $(TARGET_BIN)
 	@echo "=== Rodando Testes Validos (Programas C) ==="
-	@for file in ../ProjetoMiniC/casos-programas-c/*.c; do \
+	@for file in ProjetoMiniC/casos-programas-c/*.c; do \
 		echo "Analisando $$file..."; \
 		./$(TARGET_BIN) --jsonl "$$file" > "$$file.c.out.jsonl" 2>/dev/null; \
 	done
@@ -36,7 +48,7 @@ test-valid: $(TARGET_BIN)
 # Executa o scanner sobre os casos invalidos
 test-invalid: $(TARGET_BIN)
 	@echo "=== Rodando Testes Invalidos ==="
-	@for file in ../ProjetoMiniC/casos-invalidos/*.minic; do \
+	@for file in ProjetoMiniC/casos-invalidos/*.minic; do \
 		echo "Analisando $$file..."; \
 		./$(TARGET_BIN) --jsonl "$$file" > "$$file.out.jsonl" 2> "$$file.err.jsonl" || true; \
 	done
@@ -44,10 +56,21 @@ test-invalid: $(TARGET_BIN)
 # Roda ambos os testes
 test: test-valid test-invalid
 
-clean:
-	$(RM) *.o $(TARGET_BIN)
-	$(RM) ../ProjetoMiniC/casos-programas-c/*.out.jsonl
-	$(RM) ../ProjetoMiniC/casos-invalidos/*.out.jsonl
-	$(RM) ../ProjetoMiniC/casos-invalidos/*.err.jsonl
+test-parser: parser
+	python3 -m unittest discover -s tests -v
 
-.PHONY: all clean test test-valid test-invalid
+# Executa os 50 casos externos do professor.
+# Uso: make test-parser-50 CASES_DIR="C:\\caminho\\testes-parser-50\\testes-parser-50\\casos"
+CASES_DIR ?= ../testes-parser-50/testes-parser-50/casos
+test-parser-50:
+	python test_parser_50.py "$(CASES_DIR)"
+
+clean:
+	$(RM) C/*.o $(TARGET_BIN)
+	$(RM) $(PARSER_TARGET)
+	$(RM) minic
+	$(RM) ProjetoMiniC/casos-programas-c/*.out.jsonl
+	$(RM) ProjetoMiniC/casos-invalidos/*.out.jsonl
+	$(RM) ProjetoMiniC/casos-invalidos/*.err.jsonl
+
+.PHONY: all parser semantic clean test test-valid test-invalid test-parser test-parser-50 test-semantic

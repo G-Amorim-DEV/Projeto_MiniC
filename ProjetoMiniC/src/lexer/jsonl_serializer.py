@@ -112,10 +112,10 @@ def serialize_tokens_jsonl(tokens: Sequence[Token]) -> str:
     """Serializa uma coleção completa de tokens no formato JSON Lines."""
     tokens_validos = [t for t in tokens if t.tipo is not TokenType.ERROR]
     registros = [serializar_token(t) for t in tokens_validos]
-    return "\n".join(json.dumps(r, ensure_ascii=False) for r in registros)
+    return "\n".join(json.dumps(r, ensure_ascii=False, separators=(",", ":")) for r in registros)
 
 
 def serialize_errors_jsonl(erros: Iterable[ErroLexico]) -> str:
     """Serializa a lista de erros capturados em JSON Lines."""
     registros = [serializar_erro(e) for e in erros]
-    return "\n".join(json.dumps(r, ensure_ascii=False) for r in registros)
+    return "\n".join(json.dumps(r, ensure_ascii=False, separators=(",", ":")) for r in registros)

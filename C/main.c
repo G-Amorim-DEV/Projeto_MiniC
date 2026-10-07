@@ -32,22 +32,22 @@ static void print_json_escaped_string(FILE *stream, const char *str) {
 static void print_tokens_jsonl(const Token *tokens, size_t count, FILE *stream) {
     for (size_t i = 0; i < count; i++) {
         const Token *t = &tokens[i];
-        fprintf(stream, "{\"token\": \"%s\", \"lexeme\": ", token_type_name(t->type));
+        fprintf(stream, "{\"token\":\"%s\",\"lexeme\":", token_type_name(t->type));
         print_json_escaped_string(stream, t->lexeme);
-        fprintf(stream, ", ");
+        fprintf(stream, ",");
         
         if (t->attribute && strlen(t->attribute) > 0) {
             if (t->type == NUM_INT || t->type == NUM_FLOAT) {
-                fprintf(stream, "\"attribute\": %s, ", t->attribute);
+                fprintf(stream, "\"attribute\":%s,", t->attribute);
             } else {
-                fprintf(stream, "\"attribute\": ");
+                fprintf(stream, "\"attribute\":");
                 print_json_escaped_string(stream, t->attribute);
-                fprintf(stream, ", ");
+                fprintf(stream, ",");
             }
         } else {
-            fprintf(stream, "\"attribute\": null, ");
+            fprintf(stream, "\"attribute\":null,");
         }
-        fprintf(stream, "\"line\": %d, \"column\": %d}\n", t->line, t->column);
+        fprintf(stream, "\"line\":%d,\"column\":%d}\n", t->line, t->column);
     }
 }
 
@@ -55,15 +55,15 @@ static void print_tokens_jsonl(const Token *tokens, size_t count, FILE *stream) 
 static void print_errors_jsonl(const LexicalError *errors, size_t count, FILE *stream) {
     for (size_t i = 0; i < count; i++) {
         const LexicalError *e = &errors[i];
-        fprintf(stream, "{\"error\": \"%s\", \"lexeme\": ", error_code_name(e->code));
+        fprintf(stream, "{\"error\":\"%s\",\"lexeme\":", error_code_name(e->code));
         print_json_escaped_string(stream, e->lexeme);
-        fprintf(stream, ", \"line\": %d, \"column\": %d}\n", e->line, e->column);
+        fprintf(stream, ",\"line\":%d,\"column\":%d}\n", e->line, e->column);
     }
 }
 
 int main(int argc, char *argv[]) {
     const char *filepath = NULL;
-    bool modo_apenas_jsonl = false;
+    bool modo_apenas_jsonl = true;
 
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--jsonl") == 0) {

@@ -27,6 +27,38 @@ class Token:
     coluna: int                      # Coluna inicial do token na linha
     atributo: AtributoToken = None    # Valor avaliado (ex: 10 para um inteiro, valor da string
 
+    @property
+    def type(self) -> TokenType:
+        return self.tipo
+
+    @type.setter
+    def type(self, value: TokenType) -> None:
+        self.tipo = value
+
+    @property
+    def line(self) -> int:
+        return self.linha
+
+    @line.setter
+    def line(self, value: int) -> None:
+        self.linha = value
+
+    @property
+    def column(self) -> int:
+        return self.coluna
+
+    @column.setter
+    def column(self, value: int) -> None:
+        self.coluna = value
+
+    @property
+    def lexeme(self) -> str:
+        return self.lexema
+
+    @lexeme.setter
+    def lexeme(self, value: str) -> None:
+        self.lexema = value
+
     def display_type_name(self) -> str:
         """Retorna o nome externo esperado pelos fixtures."""
         mapping = {
