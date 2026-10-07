@@ -63,6 +63,9 @@ except ModuleNotFoundError as exc:
 # ======================================================================
 
 def executar_terminal(argumentos: list[str]) -> int:
+    if "--semantic" in argumentos:
+        from minic import main as semantic_main
+        return semantic_main([arg for arg in argumentos if arg != "--semantic"])
     caminho_alvo: str | None = None
     mostrar_tokens = False
     mostrar_erros = False

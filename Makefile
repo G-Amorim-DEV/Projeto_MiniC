@@ -7,6 +7,7 @@ OBJ = $(SRC:.c=.o)
 TARGET = C/minic_scanner
 PARSER_SRC = C/parser_main.c C/parser.c C/ast.c C/scanner.c C/token.c C/token_types.c C/errors.c C/util.c
 PARSER_TARGET = parser
+SEMANTIC_SRC = C/semantic_main.c C/semantic.c C/parser.c C/ast.c C/scanner.c C/token.c C/token_types.c C/errors.c C/util.c
 
 # Compatibilidade para comando de remoção no Windows e Linux
 ifeq ($(OS),Windows_NT)
@@ -23,6 +24,12 @@ all: $(TARGET_BIN)
 
 parser: $(PARSER_SRC)
 	$(CC) $(CFLAGS) -o $(PARSER_TARGET) $(PARSER_SRC)
+
+semantic: $(SEMANTIC_SRC) C/semantic.h C/ast.h C/parser.h
+	$(CC) $(CFLAGS) -o minic $(SEMANTIC_SRC)
+
+test-semantic:
+	python3 -m unittest discover -s tests -p test_semantic.py -v
 
 $(TARGET_BIN): $(OBJ)
 	$(CC) $(CFLAGS) -o $@ $(OBJ)
@@ -61,8 +68,9 @@ test-parser-50:
 clean:
 	$(RM) C/*.o $(TARGET_BIN)
 	$(RM) $(PARSER_TARGET)
+	$(RM) minic
 	$(RM) ProjetoMiniC/casos-programas-c/*.out.jsonl
 	$(RM) ProjetoMiniC/casos-invalidos/*.out.jsonl
 	$(RM) ProjetoMiniC/casos-invalidos/*.err.jsonl
 
-.PHONY: all parser clean test test-valid test-invalid test-parser test-parser-50
+.PHONY: all parser semantic clean test test-valid test-invalid test-parser test-parser-50 test-semantic

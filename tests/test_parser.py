@@ -79,7 +79,7 @@ class ParserCliTests(unittest.TestCase):
 
     def test_assignment_ast_is_right_associative(self):
         expected = ("Program(Function(void f() Block(VarDecl(int a),VarDecl(int b),"
-                    "ExprStmt(Assign(Id(a),Assign(Id(b),Lit(1)))))))\n")
+                    "ExprStmt(Assign(Id(a),Assign(Id(b),Lit(int,1)))))))\n")
         for command in (["python3", "parser.py"], ["./parser"]):
             result = self.run_parser(command, "void f() { int a, b; a = b = 1; }")
             self.assertEqual(expected, result.stdout)
@@ -87,7 +87,7 @@ class ParserCliTests(unittest.TestCase):
     def test_ui_analysis_reports_ast_and_errors(self):
         valido = analisar_fonte("int main() { return 0; }")
         self.assertTrue(valido.sucesso)
-        self.assertEqual("Program(Function(int main() Block(Return(Lit(0)))))", valido.ast)
+        self.assertEqual("Program(Function(int main() Block(Return(Lit(int,0)))))", valido.ast)
         self.assertFalse(valido.diagnosticos)
         self.assertTrue(valido.tokens)
 

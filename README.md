@@ -237,7 +237,9 @@ Os parsers Python e C seguem esse contrato para a CLI. A interface grafica apres
 
 ## Limitacoes atuais
 
-- A analise semantica ainda nao esta implementada.
+- A analise semantica esta implementada em Python e C e passou nos 20 casos
+  fornecidos em ambas as linguagens, com diagnosticos identicos aos gabaritos.
+  Veja [documentacao semantica](ProjetoMiniC/docs/semantica.md).
 - Os pacotes de IR, otimizacao e geracao de codigo ainda sao estruturas de organizacao.
 - A interface grafica oferece atalhos para essas etapas, mas informa que estao em desenvolvimento.
 - O projeto analisa e representa programas MiniC; ele ainda nao executa os programas nem gera um executavel final.
@@ -400,3 +402,25 @@ Erros léxicos e sintáticos são reportados com linha e coluna.
 - Python 3 + Tkinter (interface gráfica)
 - C11 (gcc, make)
 - JSONL como formato de intercâmbio de tokens/erros entre as implementações e os casos de teste
+
+## Análise semântica
+
+```bash
+python3 minic.py arquivo.c
+python3 main.py arquivo.c --semantic
+make semantic
+./minic arquivo.c
+make test-semantic
+```
+
+Os wrappers `minic.py` e `minic.c` executam lexer → parser/AST → semântica,
+preservando `parser.py` e `parser.c` como entradas sintáticas. Erros semânticos
+retornam 4. Regras, contrato de diagnósticos e resultados de validação estão em
+[semantica.md](ProjetoMiniC/docs/semantica.md).
+
+Suíte semântica fornecida (20/20 em cada linguagem):
+
+```bash
+bash testes_semanticos_py.sh minic.py minic-testes-semanticos
+bash testes_semanticos_c.sh minic.c minic-testes-semanticos
+```

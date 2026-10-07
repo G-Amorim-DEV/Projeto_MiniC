@@ -7,6 +7,15 @@ from typing import List, Optional
 
 
 class Node:
+    # Origin metadata does not participate in dataclass equality or AST output.
+    line: int = 1
+    column: int = 1
+    source_text: str = ""
+    semantic_type: str | None = None
+    resolved_symbol: object | None = None
+    coercion_type: str | None = None
+    chain_coercion_type: str | None = None
+
     def to_sexpr(self) -> str:
         raise NotImplementedError
 

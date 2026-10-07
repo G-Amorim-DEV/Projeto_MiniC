@@ -7,6 +7,13 @@
 
 AstNode *ast_new(AstKind kind, const char *text) {
     AstNode *node = xmalloc(sizeof(*node));
+    node->line = node->column = 1;
+    node->declaration_line = node->declaration_column = 1;
+    node->source_text = NULL;
+    node->semantic_type = node->coercion_type = node->chain_coercion_type = NULL;
+    node->semantic_category = NULL; node->semantic_scope = -1;
+    node->resolved_declaration = node->array_dimension = NULL;
+    node->parameters = NULL; node->parameter_count = 0; node->is_array = 0;
     node->kind = kind; node->text = xstrdup(text ? text : "");
     node->count = 0; node->capacity = 4; node->children = xmalloc(4 * sizeof(*node->children));
     return node;
@@ -18,6 +25,8 @@ void ast_add(AstNode *node, AstNode *child) {
 void ast_free(AstNode *node) {
     if (!node) return;
     for (size_t i = 0; i < node->count; ++i) ast_free(node->children[i]);
+    for (size_t i = 0; i < node->parameter_count; ++i) ast_free(node->parameters[i]);
+    free(node->parameters); free(node->source_text);
     free(node->children); free(node->text); free(node);
 }
 static const char *name(AstKind kind) {

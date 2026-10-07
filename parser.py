@@ -21,7 +21,7 @@ def main(argv=None):
     scanner = Scanner(source)
     scanner.scan_tokens()
     if scanner.errors:
-        for error in scanner.errors: print("Erro léxico: " + error.diagnostic(), file=sys.stderr) # type: ignore
+        for error in scanner.errors: print("Erro léxico: " + error.diagnostico(), file=sys.stderr) # type: ignore
         return 2
     parser = Parser(scanner.tokens)
     tree = parser.parse()

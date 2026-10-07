@@ -272,6 +272,11 @@ class Scanner:
         else:
             err_lexeme = self.source[start_pos:self.pos]
             self.erros.append(ErroCadeiaNaoTerminada(err_lexeme, line, col))
+            # Preserve trailing delimiters, matching the C scanner and fixtures.
+            while self.pos > start_pos and self.source[self.pos - 1] in ") ;}]":
+                self.pos -= 1
+                self.column -= 1
+            self.posicao, self.coluna = self.pos, self.column
 
     def _char_literal(self, line: int, col: int) -> None:
         if self._at_end() or self._peek() == "\n":
@@ -294,6 +299,8 @@ class Scanner:
             self._add_token(TokenType.CHAR_LITERAL, f"'{raw}'", line, col, ch)
         else:
             self.erros.append(ErroCaractereNaoTerminado(f"'{raw}", line, col))
+            if self._peek() == ";":
+                self._advance()
 
     def _processar_operador_ou_erro(self, caractere: str, linha: int, coluna: int) -> None:
         self._operator_or_error(caractere, linha, coluna)

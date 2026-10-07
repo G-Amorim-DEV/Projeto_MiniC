@@ -8,6 +8,7 @@
 typedef struct {
     Token *tokens; size_t count; size_t current;
     int errors;
+    int semantic_mode;
 } Parser;
 
 void parser_init(Parser *parser, Token *tokens, size_t count);

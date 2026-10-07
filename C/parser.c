@@ -34,6 +34,15 @@ static void synchronize(Parser *p) {
         advance_p(p);
     }
 }
+static AstNode *primary(Parser *p);
+static AstNode *postfix(Parser *p);
+static AstNode *unary(Parser *p);
+static AstNode *assignment(Parser *p);
+static AstNode *expression(Parser *p);
+static AstNode *statement(Parser *p);
+static AstNode *block(Parser *p);
+static AstNode *declarator(Parser *p, const char *type_name, Token *name);
+static AstNode *function_after(Parser *p, Token *type, Token *name);
 static AstNode *expression(Parser *p);
 static AstNode *statement(Parser *p);
 static AstNode *block(Parser *p);
@@ -48,7 +57,7 @@ static AstNode *literal_node(Token *token) {
     dynstr_init(&text);
     dynstr_push_str(&text, type);
     dynstr_push_char(&text, ',');
-    dynstr_push_str(&text, token->lexeme);
+    dynstr_push_str(&text, (token->type == CHAR_LITERAL || token->type == STRING) && token->attribute ? token->attribute : token->lexeme);
     AstNode *node = ast_new(AST_LIT, text.data);
     dynstr_free(&text);
     return node;
@@ -60,18 +69,18 @@ static AstNode *left(Parser *p, AstNode *(*next)(Parser *), const TokenType *ops
         if (!found) break;
         Token *op = previous(p); AstNode *right = next(p);
         if (!right) { ast_free(node); return NULL; }
-        AstNode *combined = ast_new(AST_BINARY, op->lexeme); ast_add(combined, node); ast_add(combined, right); node = combined;
+        AstNode *combined = ast_new(AST_BINARY, op->lexeme); combined->line=node->line; combined->column=node->column; ast_add(combined, node); ast_add(combined, right); node = combined;
     }
     return node;
 }
-static AstNode *primary(Parser *p) {
+static AstNode *primary_impl(Parser *p) {
     Token *t = peek(p);
     if (match(p, ID)) return ast_new(AST_ID, t->lexeme);
     if (match(p, NUM_INT) || match(p, NUM_FLOAT) || match(p, KW_TRUE) || match(p, KW_FALSE) || match(p, CHAR_LITERAL) || match(p, STRING)) return literal_node(t);
     if (match(p, LPAREN)) { AstNode *node = expression(p); if (!consume(p, RPAREN, "')' após expressão")) { ast_free(node); return NULL; } return node; }
     error_at(p, t, "expressão"); return NULL;
 }
-static AstNode *postfix(Parser *p) {
+static AstNode *postfix_impl(Parser *p) {
     AstNode *node = primary(p);
     while (node) {
         if (match(p, LBRACKET)) {
@@ -88,24 +97,24 @@ static AstNode *postfix(Parser *p) {
     }
     return node;
 }
-static AstNode *unary(Parser *p) { if (match(p, MINUS) || match(p, NOT)) { Token *op = previous(p); AstNode *operand = unary(p); if (!operand) return NULL; AstNode *node = ast_new(AST_UNARY, op->lexeme); ast_add(node, operand); return node; } return postfix(p); }
+static AstNode *unary_impl(Parser *p) { if (match(p, MINUS) || match(p, NOT)) { Token *op = previous(p); AstNode *operand = unary(p); if (!operand) return NULL; AstNode *node = ast_new(AST_UNARY, op->lexeme); ast_add(node, operand); return node; } return postfix(p); }
 static AstNode *multiplicative(Parser *p) { TokenType ops[] = {STAR, SLASH, PERCENT}; return left(p, unary, ops, 3); }
 static AstNode *additive(Parser *p) { TokenType ops[] = {PLUS, MINUS}; return left(p, multiplicative, ops, 2); }
 static AstNode *relational(Parser *p) { TokenType ops[] = {LT, LE, GT, GE}; return left(p, additive, ops, 4); }
 static AstNode *equality(Parser *p) { TokenType ops[] = {EQ, NEQ}; return left(p, relational, ops, 2); }
 static AstNode *logical_and(Parser *p) { TokenType ops[] = {AND}; return left(p, equality, ops, 1); }
 static AstNode *logical_or(Parser *p) { TokenType ops[] = {OR}; return left(p, logical_and, ops, 1); }
-static AstNode *assignment(Parser *p) {
+static AstNode *assignment_impl(Parser *p) {
     AstNode *node = logical_or(p); if (!node) return NULL;
     if (match(p, ASSIGN)) {
         Token *equals = previous(p); AstNode *value = assignment(p);
         if (!value) { ast_free(node); return NULL; }
-        if (node->kind != AST_ID && node->kind != AST_INDEX) { error_at(p, equals, "localizável antes de '='"); ast_free(node); ast_free(value); return NULL; }
+        if (!p->semantic_mode && node->kind != AST_ID && node->kind != AST_INDEX) { error_at(p, equals, "localizável antes de '='"); ast_free(node); ast_free(value); return NULL; }
         AstNode *result = ast_new(AST_ASSIGN, ""); ast_add(result, node); ast_add(result, value); return result;
     } return node;
 }
-static AstNode *expression(Parser *p) { return assignment(p); }
-static AstNode *declarator(Parser *p, const char *type_name, Token *name) {
+static AstNode *expression_impl(Parser *p) { return assignment(p); }
+static AstNode *declarator_impl(Parser *p, const char *type_name, Token *name) {
     DynStr label; dynstr_init(&label); dynstr_push_str(&label, type_name); dynstr_push_char(&label, ' '); dynstr_push_str(&label, name->lexeme);
     AstNode *size = NULL, *init = NULL;
     if (match(p, LBRACKET)) { size = expression(p); if (!size || !consume(p, RBRACKET, "']' após tamanho do vetor")) { dynstr_free(&label); ast_free(size); return NULL; } }
@@ -123,7 +132,7 @@ static AstNode *local_declaration(Parser *p) {
 static AstNode *if_statement(Parser *p) { if (!consume(p, LPAREN, "'(' após if")) return NULL; AstNode *cond = expression(p); if (!cond || !consume(p, RPAREN, "')' após condição")) { ast_free(cond); return NULL; } AstNode *then_node = statement(p); if (!then_node) { ast_free(cond); return NULL; } AstNode *node = ast_new(AST_IF, ""); ast_add(node, cond); ast_add(node, then_node); AstNode *other = null_node(); if (match(p, KW_ELSE)) { ast_free(other); other = statement(p); if (!other) { ast_free(node); return NULL; } } ast_add(node, other); return node; }
 static AstNode *while_statement(Parser *p) { if (!consume(p, LPAREN, "'(' após while")) return NULL; AstNode *cond = expression(p); if (!cond || !consume(p, RPAREN, "')' após condição")) { ast_free(cond); return NULL; } AstNode *body = statement(p); if (!body) { ast_free(cond); return NULL; } AstNode *node = ast_new(AST_WHILE, ""); ast_add(node, cond); ast_add(node, body); return node; }
 static AstNode *for_statement(Parser *p) { if (!consume(p, LPAREN, "'(' após for")) return NULL; AstNode *a = check(p, SEMI) ? null_node() : expression(p); if (!a || !consume(p, SEMI, "';' após inicialização do for")) { ast_free(a); return NULL; } AstNode *b = check(p, SEMI) ? null_node() : expression(p); if (!b || !consume(p, SEMI, "';' após condição do for")) { ast_free(a); ast_free(b); return NULL; } AstNode *c = check(p, RPAREN) ? null_node() : expression(p); if (!c || !consume(p, RPAREN, "')' após cláusulas do for")) { ast_free(a); ast_free(b); ast_free(c); return NULL; } AstNode *body = statement(p); if (!body) { ast_free(a); ast_free(b); ast_free(c); return NULL; } AstNode *node=ast_new(AST_FOR,""); ast_add(node,a);ast_add(node,b);ast_add(node,c);ast_add(node,body);return node; }
-static AstNode *statement(Parser *p) {
+static AstNode *statement_impl(Parser *p) {
     if (check(p, LBRACE)) return block(p);
     if (match(p, KW_IF)) return if_statement(p);
     if (match(p, KW_WHILE)) return while_statement(p);
@@ -135,7 +144,7 @@ static AstNode *statement(Parser *p) {
     if (match(p, KW_ELSE)) { error_at(p, previous(p), "'if' antes de 'else'"); return NULL; }
     AstNode *value = check(p, SEMI) ? null_node() : expression(p); if(!value||!consume(p,SEMI,"';' após expressão")){ast_free(value);return NULL;} AstNode*n=ast_new(AST_EXPR_STMT,"");ast_add(n,value);return n;
 }
-static AstNode *block(Parser *p) {
+static AstNode *block_impl(Parser *p) {
     if (!consume(p, LBRACE, "'{' para iniciar bloco")) return NULL;
     AstNode *node = ast_new(AST_BLOCK, "");
     while (!at_end(p) && !check(p,RBRACE)) {
@@ -149,14 +158,63 @@ static AstNode *block(Parser *p) {
     }
     if (!consume(p,RBRACE,"'}' para encerrar bloco")) { ast_free(node); return NULL; } return node;
 }
-static AstNode *function_after(Parser *p, Token *type, Token *name) {
+static AstNode *function_after_impl(Parser *p, Token *type, Token *name) {
     if (!consume(p, LPAREN, "'(' após nome da função")) return NULL;
-    DynStr sig;
-    dynstr_init(&sig); dynstr_push_str(&sig,type->lexeme);dynstr_push_char(&sig,' ');dynstr_push_str(&sig,name->lexeme);dynstr_push_char(&sig,'(');
-    if(!check(p,RPAREN)) { int first=1; do { Token *pt=peek(p); if(!is_type(pt->type)){error_at(p,pt,"tipo do parâmetro");dynstr_free(&sig);return NULL;}advance_p(p);Token*pn=consume(p,ID,"identificador do parâmetro");if(!pn){dynstr_free(&sig);return NULL;}if(!first)dynstr_push_char(&sig,',');first=0;dynstr_push_str(&sig,pt->lexeme);dynstr_push_char(&sig,' ');dynstr_push_str(&sig,pn->lexeme);if(match(p,LBRACKET)){if(!consume(p,RBRACKET,"']' no parâmetro")){dynstr_free(&sig);return NULL;}dynstr_push_str(&sig,"[]");}} while(match(p,COMMA)); }
-    if(!consume(p,RPAREN,"')' após parâmetros")){dynstr_free(&sig);return NULL;}dynstr_push_char(&sig,')');AstNode*body=block(p);if(!body){dynstr_free(&sig);return NULL;}AstNode*n=ast_new(AST_FUNCTION,sig.data);dynstr_free(&sig);ast_add(n,body);return n;
+    AstNode *node = ast_new(AST_FUNCTION, "");
+    node->declaration_line = type->line;
+    node->declaration_column = type->column;
+    DynStr signature;
+    dynstr_init(&signature);
+    dynstr_push_str(&signature, type->lexeme);
+    dynstr_push_char(&signature, ' ');
+    dynstr_push_str(&signature, name->lexeme);
+    dynstr_push_char(&signature, '(');
+    if (!check(p, RPAREN)) {
+        do {
+            Token *pt = peek(p);
+            if (!is_type(pt->type)) {
+                error_at(p, pt, "tipo do parâmetro");
+                goto fail;
+            }
+            advance_p(p);
+            Token *pn = consume(p, ID, "identificador do parâmetro");
+            if (!pn) goto fail;
+            if (node->parameter_count) dynstr_push_char(&signature, ',');
+            DynStr label;
+            dynstr_init(&label);
+            dynstr_push_str(&label, pt->lexeme);
+            dynstr_push_char(&label, ' ');
+            dynstr_push_str(&label, pn->lexeme);
+            AstNode *parameter = ast_new(AST_VAR, label.data);
+            dynstr_push_str(&signature, label.data);
+            dynstr_free(&label);
+            parameter->line = pn->line;
+            parameter->column = pn->column;
+            node->parameters = xrealloc(node->parameters,
+                (node->parameter_count + 1) * sizeof(*node->parameters));
+            node->parameters[node->parameter_count++] = parameter;
+            if (match(p, LBRACKET)) {
+                if (!consume(p, RBRACKET, "']' no parâmetro")) goto fail;
+                parameter->is_array = 1;
+                dynstr_push_str(&signature, "[]");
+            }
+        } while (match(p, COMMA));
+    }
+    if (!consume(p, RPAREN, "')' após parâmetros")) goto fail;
+    dynstr_push_char(&signature, ')');
+    AstNode *body = block(p);
+    if (!body) goto fail;
+    free(node->text);
+    node->text = signature.data;
+    ast_add(node, body);
+    return node;
+fail:
+    dynstr_free(&signature);
+    ast_free(node);
+    return NULL;
 }
-void parser_init(Parser *parser, Token *tokens, size_t count) { parser->tokens=tokens;parser->count=count;parser->current=0;parser->errors=0; }
+
+void parser_init(Parser *parser, Token *tokens, size_t count) { parser->tokens=tokens;parser->count=count;parser->current=0;parser->errors=0;parser->semantic_mode=0; }
 AstNode *parser_parse(Parser *p) {
     AstNode *root = ast_new(AST_PROGRAM, "");
     while (!at_end(p)) {
@@ -200,4 +258,80 @@ AstNode *parser_parse(Parser *p) {
         return NULL;
     }
     return root;
+}
+
+
+static void origin_node(Parser *p, AstNode *node, size_t start, const Token *origin) {
+    if (!node) return;
+    if (!node->source_text) {
+        node->line=origin->line; node->column=origin->column;
+        DynStr text; dynstr_init(&text);
+        for (size_t i=start; i<p->current; ++i) {
+            if(i!=start) dynstr_push_char(&text,' ');
+            dynstr_push_str(&text,p->tokens[i].lexeme);
+        }
+        node->source_text=text.data;
+    }
+}
+static AstNode *primary(Parser *p) {
+    size_t start=p->current;
+    AstNode *node=primary_impl(p);
+    origin_node(p,node,start,&p->tokens[start]);
+    return node;
+}
+
+static AstNode *postfix(Parser *p) {
+    size_t start=p->current;
+    AstNode *node=postfix_impl(p);
+    origin_node(p,node,start,&p->tokens[start]);
+    return node;
+}
+
+static AstNode *unary(Parser *p) {
+    size_t start=p->current;
+    AstNode *node=unary_impl(p);
+    origin_node(p,node,start,&p->tokens[start]);
+    return node;
+}
+
+static AstNode *assignment(Parser *p) {
+    size_t start=p->current;
+    AstNode *node=assignment_impl(p);
+    origin_node(p,node,start,&p->tokens[start]);
+    return node;
+}
+
+static AstNode *expression(Parser *p) {
+    size_t start=p->current;
+    AstNode *node=expression_impl(p);
+    origin_node(p,node,start,&p->tokens[start]);
+    return node;
+}
+
+static AstNode *statement(Parser *p) {
+    size_t start=p->current;
+    AstNode *node=statement_impl(p);
+    origin_node(p,node,start,&p->tokens[start]);
+    return node;
+}
+
+static AstNode *block(Parser *p) {
+    size_t start=p->current;
+    AstNode *node=block_impl(p);
+    origin_node(p,node,start,&p->tokens[start]);
+    return node;
+}
+
+static AstNode *declarator(Parser *p, const char *type_name, Token *name) {
+    size_t start=p->current;
+    AstNode *node=declarator_impl(p, type_name, name);
+    origin_node(p,node,start,name);
+    return node;
+}
+
+static AstNode *function_after(Parser *p, Token *type, Token *name) {
+    size_t start = p->current;
+    AstNode *node = function_after_impl(p, type, name);
+    origin_node(p, node, start, name);
+    return node;
 }
