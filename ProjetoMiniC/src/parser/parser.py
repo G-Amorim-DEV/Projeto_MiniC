@@ -67,7 +67,8 @@ class SyntaxErrorMiniC(Exception):
 
 
 class Parser:
-    def __init__(self, tokens: Sequence[Token]):
+    def __init__(self, tokens: Sequence[Token], *, semantic_mode: bool = False):
+        self.semantic_mode = semantic_mode
         self.tokens = list(tokens)
         self.current = 0
         self.errors: List[SyntaxErrorMiniC] = []
@@ -111,7 +112,9 @@ class Parser:
         parameters = self._parameters()
         self._consume(TokenType.RPAREN, "FECHA_PAREN após os parâmetros")
         body = self._block()
-        return Function(type_token.lexeme, name.lexeme, parameters, body)
+        node = self._located(Function(type_token.lexeme, name.lexeme, parameters, body), name)
+        node.declaration_line, node.declaration_column = type_token.line, type_token.column
+        return node
 
     def _parameters(self) -> List[Parameter]:
         parameters = []
@@ -123,7 +126,7 @@ class Parser:
             if self._match(TokenType.LBRACKET):
                 self._consume(TokenType.RBRACKET, "']' após '[' no parâmetro")
                 is_array = True
-            parameters.append(Parameter(type_token.lexeme, name.lexeme, is_array))
+            parameters.append(self._located(Parameter(type_token.lexeme, name.lexeme, is_array), name))
             if not self._match(TokenType.COMMA): break
             if self._check(TokenType.RPAREN): raise self._error(self._peek(), "parâmetro após ','")
         return parameters
@@ -164,7 +167,7 @@ class Parser:
             size = self._expression()
             self._consume(TokenType.RBRACKET, "FECHA_COLCHETE após o tamanho do vetor")
         initializer = self._expression() if self._match(TokenType.ASSIGN) else None
-        return VarDecl(type_name, name.lexeme, initializer, size)
+        return self._located(VarDecl(type_name, name.lexeme, initializer, size), name)
 
     def _statement(self):
         if self._check(TokenType.RBRACE) or self._at_end():
@@ -240,7 +243,7 @@ class Parser:
         if self._match(TokenType.ASSIGN):
             equals = self._previous()
             value = self._assignment()
-            if not isinstance(expression, (Id, Index)): raise self._error(equals, "localizável antes de '='")
+            if not self.semantic_mode and not isinstance(expression, (Id, Index)): raise self._error(equals, "localizável antes de '='")
             return Assign(expression, value)
         return expression
     def _or(self): return self._left(self._and, (TokenType.OR,))
@@ -253,7 +256,7 @@ class Parser:
         expression = next_rule()
         while self._match(*operators):
             operator = self._previous()
-            expression = Binary(operator.lexeme, expression, next_rule())
+            expression = self._located(Binary(operator.lexeme, expression, next_rule()), expression)
         return expression
     def _unary(self):
         if self._match(TokenType.MINUS, TokenType.NOT): return Unary(self._previous().lexeme, self._unary())
@@ -288,6 +291,10 @@ class Parser:
             self._consume(TokenType.RPAREN, "')' após expressão")
             return expression
         raise self._error(self._peek(), "expressão")
+    @staticmethod
+    def _located(node, origin):
+        node.line, node.column = origin.line, origin.column
+        return node
 
     def _synchronize(self):
         # Sempre consome ao menos o token que provocou a falha. Sem esse
@@ -330,3 +337,24 @@ for _method, _rule in {
     "_primary": "Primary",
 }.items():
     setattr(Parser, _method, _traced(_rule)(getattr(Parser, _method)))
+
+def _with_origin(method):
+    """Retain token spelling and positions without changing public constructors."""
+    from functools import wraps
+
+    @wraps(method)
+    def parse_node(self, *args, **kwargs):
+        start = self.current
+        result = method(self, *args, **kwargs)
+        if result is not None and hasattr(result, "to_sexpr"):
+            if "line" not in result.__dict__:
+                self._located(result, self.tokens[start])
+            if not result.source_text:
+                result.source_text = " ".join(t.lexeme for t in self.tokens[start:self.current])
+        return result
+    return parse_node
+
+
+for _method in ("_primary", "_postfix", "_unary", "_assignment", "_expression",
+                "_statement", "_block", "_declarator", "_function_after_open"):
+    setattr(Parser, _method, _with_origin(getattr(Parser, _method)))

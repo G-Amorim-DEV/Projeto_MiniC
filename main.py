@@ -63,6 +63,9 @@ except ModuleNotFoundError as exc:
 # ======================================================================
 
 def executar_terminal(argumentos: list[str]) -> int:
+    if "--semantic" in argumentos:
+        from minic import main as semantic_main
+        return semantic_main([arg for arg in argumentos if arg != "--semantic"])
     caminho_alvo: str | None = None
     mostrar_tokens = False
     mostrar_erros = False
@@ -113,15 +116,15 @@ def executar_terminal(argumentos: list[str]) -> int:
         parser = Parser(scanner.tokens)
         programa = parser.parse()
 
-        if scanner.possui_erros():
-            print(f"{len(scanner.erros)} erro(s) léxico(s) encontrado(s):", file=sys.stderr)
-            for err in scanner.erros:
+        if scanner.has_errors():
+            print(f"{len(scanner.errors)} erro(s) léxico(s) encontrado(s):", file=sys.stderr)
+            for err in scanner.errors:
                 print(f"  [ERRO LÉXICO] {err.diagnostico()}", file=sys.stderr)
 
-        if parser.possui_erros():
-            print(f"{len(parser.erros)} erro(s) sintático(s) encontrado(s):", file=sys.stderr)
-            for err in parser.erros:
-                print(f"  [ERRO SINTÁTICO] {err.diagnostico()}", file=sys.stderr)
+        if parser.errors:
+            print(f"{len(parser.errors)} erro(s) sintático(s) encontrado(s):", file=sys.stderr)
+            for err in parser.errors:
+                print(f"  [ERRO SINTÁTICO] {err}", file=sys.stderr)
         elif apenas_parse and not mostrar_ast:
             print("Análise sintática concluída sem erros.")
 
@@ -131,9 +134,9 @@ def executar_terminal(argumentos: list[str]) -> int:
             else:
                 print(print_tree(programa))
 
-        if scanner.possui_erros():
+        if scanner.has_errors():
             return 2
-        return 3 if parser.possui_erros() else 0
+        return 3 if parser.errors else 0
 
     # Formato JSONL (padrão dos fixtures do professor)
     if modo_jsonl:
@@ -141,8 +144,8 @@ def executar_terminal(argumentos: list[str]) -> int:
             saida_tokens = serialize_tokens_jsonl(scanner.tokens)
             if saida_tokens:
                 print(saida_tokens)
-        if not mostrar_tokens and scanner.erros:
-            saida_erros = serialize_errors_jsonl(scanner.erros)
+        if not mostrar_tokens and scanner.errors:
+            saida_erros = serialize_errors_jsonl(scanner.errors)
             if saida_erros:
                 print(saida_erros, file=sys.stderr)
 
@@ -155,9 +158,9 @@ def executar_terminal(argumentos: list[str]) -> int:
             print(f"{nome:<14}{repr(lexema):<26}{linha:<7}{coluna:<8}{attr}")
 
     elif mostrar_erros:
-        if scanner.erros:
-            print(f"{len(scanner.erros)} erro(s) léxico(s) encontrado(s):", file=sys.stderr)
-            for err in scanner.erros:
+        if scanner.errors:
+            print(f"{len(scanner.errors)} erro(s) léxico(s) encontrado(s):", file=sys.stderr)
+            for err in scanner.errors:
                 print(f"  [ERRO LÉXICO] {err.diagnostico()}", file=sys.stderr)
         else:
             print("Nenhum erro léxico encontrado.")
@@ -167,12 +170,12 @@ def executar_terminal(argumentos: list[str]) -> int:
         print(f"Análise Léxica - Arquivo: {arquivo.name}")
         print("=" * 80)
         print("Tokens reconhecidos:")
-        scanner.imprimir_tokens()
+        scanner.print_tokens()
         print("-" * 80)
         print("Diagnóstico:")
-        scanner.imprimir_erros()
+        scanner.print_errors()
 
-    return 2 if scanner.possui_erros() else 0
+    return 2 if scanner.has_errors() else 0
 
 
 # ======================================================================

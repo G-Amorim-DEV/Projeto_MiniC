@@ -50,7 +50,11 @@ def main():
     cli = argparse.ArgumentParser(description=__doc__)
     cli.add_argument("cases_dir", nargs="?", type=Path)
     cli.add_argument("--detalhado", action="store_true")
+    cli.add_argument("--native", type=Path, help="Executável C; usa o comparador de AST normalizada")
     args = cli.parse_args()
+    if args.native:
+        from test_parser_native_50 import main as native_main
+        return native_main()
     cases_dir = localizar_casos(root, args.cases_dir)
     if cases_dir is None:
         print("ERRO: pasta oficial dos casos não encontrada.", file=sys.stderr)

@@ -194,3 +194,9 @@ contrato de execução das implementações.
 - Python 3 + Tkinter (interface gráfica)
 - C11 (gcc, make)
 - JSONL como formato de intercâmbio de tokens/erros entre as implementações e os casos de teste
+
+## Análise semântica (Python e C)
+
+Execute `python3 minic.py arquivo.c` ou `make semantic && ./minic arquivo.c`. A CLI sintática continua disponível em `parser.py`. Regras, anotações da AST e correspondência com a Aula 15 estão em [semantica.md](ProjetoMiniC/docs/semantica.md).
+
+Validação: `bash testes_semanticos_py.sh minic.py minic-testes-semanticos`, `bash testes_semanticos_c.sh minic.c minic-testes-semanticos` e `python3 -m unittest discover -s tests`.

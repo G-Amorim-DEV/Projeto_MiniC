@@ -14,20 +14,21 @@ def main(argv=None):
         return 1
     path = Path(args[0])
     try:
-        source = path.read_text(encoding="utf-8")
+        source = path.read_text(encoding="utf-8-sig")
     except OSError as error:
         print("Erro ao ler arquivo '{}': {}".format(path, error), file=sys.stderr)
         return 1
     scanner = Scanner(source)
     scanner.scan_tokens()
     if scanner.errors:
-        for error in scanner.errors: print("Erro léxico: " + error.diagnostic(), file=sys.stderr)
+        for error in scanner.errors: print("Erro léxico: " + error.diagnostico(), file=sys.stderr) # type: ignore
         return 2
     parser = Parser(scanner.tokens)
     tree = parser.parse()
     if parser.errors:
         for error in parser.errors: print(str(error), file=sys.stderr)
         return 3
+    assert tree is not None
     print(tree.to_sexpr())
     return 0
 
