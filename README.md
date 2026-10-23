@@ -257,85 +257,85 @@ bash test_scanner_c.sh ./scanner.c ./ProjetoMiniC
 ```text
 ================================================================
 Caso: ProjetoMiniC/casos-invalidos/i01_simbolo_desconhecido.minic
-Comando: python3 ./scanner.py ProjetoMiniC/casos-invalidos/i01_simbolo_desconhecido.minic --jsonl
-Resultado esperado: ProjetoMiniC/casos-invalidos/i01_simbolo_desconhecido.expected.jsonl
-OK: 4 token(s).
-OK: Erros léxicos validados e código de saída 2 confirmado.
+Comando: python3 ./scanner.py ./ProjetoMiniC/casos-invalidos/i01_simbolo_desconhecido.minic --jsonl
+Resultado esperado: ./ProjetoMiniC/casos-invalidos/i01_simbolo_desconhecido.expected.jsonl
+OK: 6 tokens.
+OK: 1 erros.
 RESULTADO: OK
 
 ================================================================
 Caso: ProjetoMiniC/casos-invalidos/i02_comentario_nao_terminado.minic
-Comando: python3 ./scanner.py ProjetoMiniC/casos-invalidos/i02_comentario_nao_terminado.minic --jsonl
-Resultado esperado: ProjetoMiniC/casos-invalidos/i02_comentario_nao_terminado.expected.jsonl
-OK: 5 token(s).
-OK: Erros léxicos validados e código de saída 2 confirmado.
+Comando: python3 ./scanner.py ./ProjetoMiniC/casos-invalidos/i02_comentario_nao_terminado.minic --jsonl
+Resultado esperado: ./ProjetoMiniC/casos-invalidos/i02_comentario_nao_terminado.expected.jsonl
+OK: 6 tokens.
+OK: 1 erros.
 RESULTADO: OK
 
 ================================================================
 Caso: ProjetoMiniC/casos-invalidos/i03_caractere_nao_terminado.minic
-Comando: python3 ./scanner.py ProjetoMiniC/casos-invalidos/i03_caractere_nao_terminado.minic --jsonl
-Resultado esperado: ProjetoMiniC/casos-invalidos/i03_caractere_nao_terminado.expected.jsonl
-OK: 6 token(s).
-OK: Erros léxicos validados e código de saída 2 confirmado.
+Comando: python3 ./scanner.py ./ProjetoMiniC/casos-invalidos/i03_caractere_nao_terminado.minic --jsonl
+Resultado esperado: ./ProjetoMiniC/casos-invalidos/i03_caractere_nao_terminado.expected.jsonl
+OK: 9 tokens.
+OK: 1 erros.
 RESULTADO: OK
 
 ================================================================
 Caso: ProjetoMiniC/casos-invalidos/i04_cadeia_nao_terminada.minic
-Comando: python3 ./scanner.py ProjetoMiniC/casos-invalidos/i04_cadeia_nao_terminada.minic --jsonl
-Resultado esperado: ProjetoMiniC/casos-invalidos/i04_cadeia_nao_terminada.expected.jsonl
-OK: 4 token(s).
-OK: Erros léxicos validados e código de saída 2 confirmado.
+Comando: python3 ./scanner.py ./ProjetoMiniC/casos-invalidos/i04_cadeia_nao_terminada.minic --jsonl
+Resultado esperado: ./ProjetoMiniC/casos-invalidos/i04_cadeia_nao_terminada.expected.jsonl
+OK: 5 tokens.
+OK: 1 erros.
 RESULTADO: OK
 
 ================================================================
 Caso: ProjetoMiniC/casos-invalidos/i05_numero_real_malformado.minic
-Comando: python3 ./scanner.py ProjetoMiniC/casos-invalidos/i05_numero_real_malformado.minic --jsonl
-Resultado esperado: ProjetoMiniC/casos-invalidos/i05_numero_real_malformado.expected.jsonl
-OK: 4 token(s).
-OK: Erros léxicos validados e código de saída 2 confirmado.
+Comando: python3 ./scanner.py ./ProjetoMiniC/casos-invalidos/i05_numero_real_malformado.minic --jsonl
+Resultado esperado: ./ProjetoMiniC/casos-invalidos/i05_numero_real_malformado.expected.jsonl
+OK: 6 tokens.
+OK: 1 erros.
 RESULTADO: OK
 
 ================================================================
 Caso: ProjetoMiniC/casos-invalidos/i06_identificador_iniciado_por_digito.minic
-Comando: python3 ./scanner.py ProjetoMiniC/casos-invalidos/i06_identificador_iniciado_por_digito.minic --jsonl
-Resultado esperado: ProjetoMiniC/casos-invalidos/i06_identificador_iniciado_por_digito.expected.jsonl
-OK: 4 token(s).
-OK: Erros léxicos validados e código de saída 2 confirmado.
+Comando: python3 ./scanner.py ./ProjetoMiniC/casos-invalidos/i06_identificador_iniciado_por_digito.minic --jsonl
+Resultado esperado: ./ProjetoMiniC/casos-invalidos/i06_identificador_iniciado_por_digito.expected.jsonl
+OK: 7 tokens.
+OK: 1 erros.
 RESULTADO: OK
 
 ================================================================
 Caso: ProjetoMiniC/casos-programas-c/c01_fibonacci.c
-Comando: python3 ./scanner.py ProjetoMiniC/casos-programas-c/c01_fibonacci.c --jsonl
-Resultado esperado: ProjetoMiniC/casos-programas-c/c01_fibonacci.c.expected.jsonl
-OK: 85 token(s).
+Comando: python3 ./scanner.py ./ProjetoMiniC/casos-programas-c/c01_fibonacci.c --jsonl
+Resultado esperado: ./ProjetoMiniC/casos-programas-c/c01_fibonacci.c.expected.jsonl
+OK: 85 tokens.
 RESULTADO: OK
 
 ================================================================
 Caso: ProjetoMiniC/casos-programas-c/c02_primos.c
-Comando: python3 ./scanner.py ProjetoMiniC/casos-programas-c/c02_primos.c --jsonl
-Resultado esperado: ProjetoMiniC/casos-programas-c/c02_primos.c.expected.jsonl
-OK: 96 token(s).
+Comando: python3 ./scanner.py ./ProjetoMiniC/casos-programas-c/c02_primos.c --jsonl
+Resultado esperado: ./ProjetoMiniC/casos-programas-c/c02_primos.c.expected.jsonl
+OK: 96 tokens.
 RESULTADO: OK
 
 ================================================================
 Caso: ProjetoMiniC/casos-programas-c/c03_media_vetor.c
-Comando: python3 ./scanner.py ProjetoMiniC/casos-programas-c/c03_media_vetor.c --jsonl
-Resultado esperado: ProjetoMiniC/casos-programas-c/c03_media_vetor.c.expected.jsonl
-OK: 115 token(s).
+Comando: python3 ./scanner.py ./ProjetoMiniC/casos-programas-c/c03_media_vetor.c --jsonl
+Resultado esperado: ./ProjetoMiniC/casos-programas-c/c03_media_vetor.c.expected.jsonl
+OK: 115 tokens.
 RESULTADO: OK
 
 ================================================================
 Caso: ProjetoMiniC/casos-programas-c/c04_menu_interativo.c
-Comando: python3 ./scanner.py ProjetoMiniC/casos-programas-c/c04_menu_interativo.c --jsonl
-Resultado esperado: ProjetoMiniC/casos-programas-c/c04_menu_interativo.c.expected.jsonl
-OK: 95 token(s).
+Comando: python3 ./scanner.py ./ProjetoMiniC/casos-programas-c/c04_menu_interativo.c --jsonl
+Resultado esperado: ./ProjetoMiniC/casos-programas-c/c04_menu_interativo.c.expected.jsonl
+OK: 95 tokens.
 RESULTADO: OK
 
 ================================================================
 Caso: ProjetoMiniC/casos-programas-c/c05_controle_temperatura.c
-Comando: python3 ./scanner.py ProjetoMiniC/casos-programas-c/c05_controle_temperatura.c --jsonl
-Resultado esperado: ProjetoMiniC/casos-programas-c/c05_controle_temperatura.c.expected.jsonl
-OK: 61 token(s).
+Comando: python3 ./scanner.py ./ProjetoMiniC/casos-programas-c/c05_controle_temperatura.c --jsonl
+Resultado esperado: ./ProjetoMiniC/casos-programas-c/c05_controle_temperatura.c.expected.jsonl
+OK: 61 tokens.
 RESULTADO: OK
 
 ================================================================
