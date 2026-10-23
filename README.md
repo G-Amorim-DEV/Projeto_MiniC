@@ -9,6 +9,11 @@ O objetivo do projeto e construir gradualmente um pipeline de compilacao: leitur
 | Etapa | Python | C |
 |---|---|---|
 | Analise lexica | Implementada | Implementada |
+| Analise sintatica e AST | Implementada (50/50 casos) | Implementada (50/50 casos) |
+| Analise semantica | Implementada (20/20 casos) | Implementada (20/20 casos) |
+| Representacao Intermediaria (IR / TAC) | Implementada | Implementada |
+| Otimizacao | Em desenvolvimento | Em desenvolvimento |
+| Geracao de codigo | Em desenvolvimento | Em desenvolvimento |
 
 O scanner C escreve tokens JSONL em `stdout` e erros JSONL em `stderr`. Os modulos C principais sao:
 
@@ -19,7 +24,9 @@ O scanner C escreve tokens JSONL em `stdout` e erros JSONL em `stderr`. Os modul
 - `C/util.c` e `C/util.h`: memoria, strings dinamicas e leitura de arquivos.
 - `C/main.c`: CLI e serializacao JSONL do scanner.
 - `C/parser.c`, `C/parser_main.c`: parser e entrada CLI do parser.
-- `C/ast.c` e `C/ast.h`: nos e serializacao da AST.
+- `C/ast.c` e `C/ast.h`: nos, anotacoes semanticas e serializacao da AST.
+- `C/semantic.c`, `C/semantic.h` e `C/semantic_main.c`: analisador semantico e CLI.
+- `C/ir.c`, `C/ir.h` e `C/ir_main.c`: gerador e formatador de Representacao Intermediaria (TAC) e CLI.
 
 O `Makefile` tambem compila os modulos C separadamente. A unidade `scanner.c` da raiz e destinada aos scripts que compilam um unico arquivo; a pasta `C/` preserva a organizacao modular usada pelo Makefile.
 
@@ -219,19 +226,22 @@ O scanner C e compilado para um executavel temporario ou local chamado `scanner`
 
 | Codigo | Significado |
 |---:|---|
-| 0 | Analise concluida com sucesso |
+| 0 | Analise / geracao concluida com sucesso |
 | 1 | Uso incorreto ou erro de leitura |
 | 2 | Erro lexico |
 | 3 | Erro sintatico |
+| 4 | Erro semantico |
 
-Os parsers Python e C seguem esse contrato para a CLI. A interface grafica apresenta os mesmos resultados em suas abas de AST, arvore, diagnosticos e tokens.
+Os compiladores Python e C seguem esse contrato para a CLI. A interface grafica apresenta os mesmos resultados em suas janelas de Analise Lexica, Analise Sintatica, Analise Semantica e Gerador de IR.
 
 ## Documentacao tecnica
 
 - `ProjetoMiniC/docs/README.md`: detalhes da implementacao Python.
 - `ProjetoMiniC/docs/gramatica.ebnf`: arquivo reservado para a gramatica EBNF completa; a gramatica usada pelo parser esta implementada em `src/parser/parser.py` e em `C/parser.c`.
 - `ProjetoMiniC/docs/especificacao.md`: especificacao lexica executavel, regras de tokens, recuperacao e formato JSONL.
-- `ProjetoMiniC/docs/arquitetura.md`: documento reservado para a arquitetura geral do compilador.
+- `ProjetoMiniC/docs/semantica.md`: especificacao, regras e testes da analise semantica em Python e C.
+- `ProjetoMiniC/docs/ir.md`: especificacao do Codigo de Tres Enderecos (TAC), instrucoes geradas, escopos e controle de fluxo.
+- `ProjetoMiniC/docs/arquitetura.md`: arquitetura geral do pipeline do compilador.
 - `testes-parser-50/README.md`: formato e regras do pacote externo.
 - `testes-parser-50/EXECUCAO.txt`: comandos minimos por caso.
 
@@ -240,8 +250,11 @@ Os parsers Python e C seguem esse contrato para a CLI. A interface grafica apres
 - A analise semantica esta implementada em Python e C e passou nos 20 casos
   fornecidos em ambas as linguagens, com diagnosticos identicos aos gabaritos.
   Veja [documentacao semantica](ProjetoMiniC/docs/semantica.md).
-- Os pacotes de IR, otimizacao e geracao de codigo ainda sao estruturas de organizacao.
-- A interface grafica oferece atalhos para essas etapas, mas informa que estao em desenvolvimento.
+- A geracao de Representacao Intermediaria (IR) em Codigo de Tres Enderecos (TAC)
+  esta implementada em Python e C com paridade textual exata para toda a gramatica MiniC.
+  Veja [documentacao de IR](ProjetoMiniC/docs/ir.md).
+- Os pacotes de otimizacao e geracao de codigo final ainda sao estruturas de organizacao.
+- A interface grafica oferece interfaces proprias para Lexer, Parser, Semantica e IR; Otimizador e Gerador de Codigo exibem aviso de desenvolvimento.
 - O projeto analisa e representa programas MiniC; ele ainda nao executa os programas nem gera um executavel final.
 - O pacote de testes externos valida a AST e a rejeicao sintatica, nao a execucao do programa.
 
@@ -362,7 +375,7 @@ Observações:
 
 - Os scripts `test_scanner_*.sh` recebem `[scanner] [pasta-de-testes]` e geram um `output.jsonl` temporário na pasta atual.
 - **50 casos do parser:** os casos 01–25 devem ser aceitos com a AST esperada e os casos 26–50 devem ser rejeitados. O runner retorna `0` quando todos passam, `1` quando há falhas e `2` se a pasta de casos não for encontrada. Sem argumento, ele procura em `~/Downloads/testes-parser-50/...` e em `../testes-parser-50/...`, por isso informe o caminho como nos exemplos acima.
-- **Parser em C:** rejeita os 25 casos inválidos, mas só 3 dos 25 casos válidos batem com a AST esperada, porque a saída em C ainda usa o formato antigo (por exemplo `VarDecl(int x,Lit(42))` em vez do formato do Python). Por isso, `make test-parser`, que compara a saída de Python e C, ainda falha até o formato ser alinhado.
+- **Parser em C:** alinhado ao formato oficial da AST do Python e aprovado nos **50/50 casos** do pacote `testes-parser-50` (25 casos válidos com AST idêntica ao gabarito e 25 casos inválidos rejeitados com código `3`).
 
 ## O que o lexer reconhece
 
@@ -616,4 +629,70 @@ ______________________________________________________________________
 
 Resumo Semântico: 10 aceitos | 10 rejeitados (Total: 20 casos)
 ```
+
+## Representação Intermediária (IR) — Código de Três Endereços (TAC)
+
+A etapa de Representação Intermediária consome a AST validada e anotada pela análise semântica e produz **Código de Três Endereços (TAC)** explícito e determinístico, mantendo saída textual idêntica nas versões em Python (`ProjetoMiniC/src/ir/`) e C (`C/ir.h`, `C/ir.c`, `C/ir_main.c`). Veja a especificação completa em [`ProjetoMiniC/docs/ir.md`](ProjetoMiniC/docs/ir.md).
+
+### Fluxo e Bloqueio em Caso de Erros
+
+```text
+Lexer (2) → Parser/AST (3) → Análise Semântica (4) → Geração de IR (0)
+```
+
+Não é gerado IR se houver erro léxico (`2`), sintático (`3`) ou semântico (`4`). Além disso, a API (`generate_ir` em Python e `ir_generate` em C) valida estruturalmente a AST recebida e rejeita árvores vazias, sem anotações semânticas ou com nós `<error>`.
+
+### Como Executar a Geração de IR
+
+```bash
+# Em Python:
+python3 minic.py --ir arquivo.c
+python3 main.py arquivo.c --ir
+python3 ir.py arquivo.c
+python3 -m ProjetoMiniC.src.ir arquivo.c
+python3 -m ProjetoMiniC.src.ir              # abre a interface gráfica (Tkinter) do IR
+
+# Em C (via Makefile ou compilação direta com GCC):
+make semantic
+./minic --ir arquivo.c
+
+make ir
+./ir arquivo.c
+
+# Compilação direta em arquivo único:
+gcc -std=c11 -Wall -Wextra -pedantic -O2 minic.c -o minic
+./minic --ir arquivo.c
+
+gcc -std=c11 -Wall -Wextra -pedantic -O2 ir.c -o ir
+./ir arquivo.c
+```
+
+### Formato TAC e Regras de Tradução
+
+- **Declarações e Funções:**
+  - Globais: `global <tipo> <nome>` e `global <tipo> <nome>[<tam>]` (com atribuição `<nome> = <val>` quando inicializadas).
+  - Funções: `func <tipo_retorno> <nome>:` ... `endfunc` (instruções internas indentadas com 2 espaços).
+  - Parâmetros e locais: `param <tipo> <nome_ir>` (incluindo `<tipo>[]`), `local <tipo> <nome_ir>` e `local <tipo> <nome_ir>[<tam>]`.
+- **Temporários e Rótulos:**
+  - Temporários sequenciais `t1, t2, t3, ...` e rótulos sequenciais `L1, L2, L3, ...`.
+- **Expressões, Coerções, Vetores, Chamadas e E/S:**
+  - Binárias: `t1 = a + b`, `t2 = x < 10`, `t3 = p && q`.
+  - Unárias: `t1 = - x`, `t2 = ! ok`.
+  - Promoção numérica `int → float` (`coercion_type` e `chain_coercion_type`): `t1 = int2float n`.
+  - Vetores: leitura `t1 = v[i]` e escrita `v[i] = val`.
+  - Chamadas e retornos: `arg <val>` para cada argumento, `t1 = call f, <n>` (ou `call f, <n>` para retorno `void`), `return <val>` ou `return`.
+  - Entrada e saída: `read x`, `read v[i]` e `print val`.
+- **Escopos e Desambiguação de Identificadores:**
+  - Utiliza os símbolos e números de escopo resolvidos pela análise semântica. Variáveis locais ou parâmetros que sombreiam variáveis globais ou declarações anteriores na mesma função recebem o sufixo determinístico `$<escopo>` (por exemplo, `x$1`, `x$2`), evitando colisões de nomes.
+- **Controle de Fluxo e Laços Aninhados:**
+  - `if`/`else`, `while` e `for` são convertidos em `if_false <cond> goto L<n>`, `goto L<n>` e rótulos `L<n>:`.
+  - Uma pilha de alvos de laço `(continue_label, break_label)` garante que `break` e `continue` em laços aninhados desviem sempre para o laço imediatamente envolvente (no `for`, `continue` salta para o rótulo de incremento `L_step` antes de reavaliar a condição).
+
+### Testes de IR
+
+```bash
+python -m unittest discover -s tests -p test_ir.py -v
+make test-ir
+```
+
 

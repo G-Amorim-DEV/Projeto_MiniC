@@ -1,5 +1,6 @@
-/* Single translation unit for the semantic test runner. */
+/* Single translation unit for the semantic and IR runner. */
 #include "C/semantic_main.c"
+#include "C/ir.c"
 #include "C/semantic.c"
 #include "C/parser.c"
 #include "C/ast.c"

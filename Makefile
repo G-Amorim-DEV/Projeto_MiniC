@@ -7,7 +7,9 @@ OBJ = $(SRC:.c=.o)
 TARGET = C/minic_scanner
 PARSER_SRC = C/parser_main.c C/parser.c C/ast.c C/scanner.c C/token.c C/token_types.c C/errors.c C/util.c
 PARSER_TARGET = parser
-SEMANTIC_SRC = C/semantic_main.c C/semantic.c C/parser.c C/ast.c C/scanner.c C/token.c C/token_types.c C/errors.c C/util.c
+SEMANTIC_SRC = C/semantic_main.c C/ir.c C/semantic.c C/parser.c C/ast.c C/scanner.c C/token.c C/token_types.c C/errors.c C/util.c
+IR_SRC = C/ir_main.c C/ir.c C/semantic.c C/parser.c C/ast.c C/scanner.c C/token.c C/token_types.c C/errors.c C/util.c
+IR_TARGET = ir
 
 # Compatibilidade para comando de remoção no Windows e Linux
 ifeq ($(OS),Windows_NT)
@@ -25,11 +27,17 @@ all: $(TARGET_BIN)
 parser: $(PARSER_SRC)
 	$(CC) $(CFLAGS) -o $(PARSER_TARGET) $(PARSER_SRC)
 
-semantic: $(SEMANTIC_SRC) C/semantic.h C/ast.h C/parser.h
+semantic: $(SEMANTIC_SRC) C/ir.h C/semantic.h C/ast.h C/parser.h
 	$(CC) $(CFLAGS) -o minic $(SEMANTIC_SRC)
+
+ir: $(IR_SRC) C/ir.h C/semantic.h C/ast.h C/parser.h
+	$(CC) $(CFLAGS) -o $(IR_TARGET) $(IR_SRC)
 
 test-semantic:
 	python3 -m unittest discover -s tests -p test_semantic.py -v
+
+test-ir:
+	python3 -m unittest discover -s tests -p test_ir.py -v
 
 $(TARGET_BIN): $(OBJ)
 	$(CC) $(CFLAGS) -o $@ $(OBJ)
@@ -69,8 +77,9 @@ clean:
 	$(RM) C/*.o $(TARGET_BIN)
 	$(RM) $(PARSER_TARGET)
 	$(RM) minic
+	$(RM) $(IR_TARGET)
 	$(RM) ProjetoMiniC/casos-programas-c/*.out.jsonl
 	$(RM) ProjetoMiniC/casos-invalidos/*.out.jsonl
 	$(RM) ProjetoMiniC/casos-invalidos/*.err.jsonl
 
-.PHONY: all parser semantic clean test test-valid test-invalid test-parser test-parser-50 test-semantic
+.PHONY: all parser semantic ir clean test test-valid test-invalid test-parser test-parser-50 test-semantic test-ir

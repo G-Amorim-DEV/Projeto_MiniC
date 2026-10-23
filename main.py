@@ -14,6 +14,8 @@ Modos de Execução:
    python main.py arquivo.minic --parse     (roda o parser e informa OK/erros sintáticos)
    python main.py arquivo.minic --ast       (roda o parser e imprime a AST em árvore)
    python main.py arquivo.minic --ast --sexp (imprime a AST em forma parentetizada)
+   python main.py arquivo.minic --semantic  (roda análise semântica)
+   python main.py arquivo.minic --ir        (gera Representação Intermediária em TAC)
 
 2. Interface Gráfica (Tkinter):
    python main.py
@@ -63,6 +65,9 @@ except ModuleNotFoundError as exc:
 # ======================================================================
 
 def executar_terminal(argumentos: list[str]) -> int:
+    if "--ir" in argumentos:
+        from minic import main as minic_main
+        return minic_main(["--ir"] + [arg for arg in argumentos if arg != "--ir"])
     if "--semantic" in argumentos:
         from minic import main as semantic_main
         return semantic_main([arg for arg in argumentos if arg != "--semantic"])
@@ -91,7 +96,7 @@ def executar_terminal(argumentos: list[str]) -> int:
             caminho_alvo = arg
 
     if not caminho_alvo:
-        print("Uso: python main.py <arquivo.minic> [--tokens] [--errors] [--jsonl] [--parse] [--ast] [--sexp]",
+        print("Uso: python main.py <arquivo.minic> [--tokens] [--errors] [--jsonl] [--parse] [--ast] [--sexp] [--semantic] [--ir]",
               file=sys.stderr)
         return 1
 
@@ -224,9 +229,9 @@ def iniciar_gui() -> int:
 
             botoes = [
                 ("Análise Léxica", lambda: _launch_module("ProjetoMiniC.src.lexer")),
-                ("Gerador de IR", lambda: messagebox.showinfo("Em desenvolvimento", "Gerador de IR ainda não implementado.")),
+                ("Gerador de IR", lambda: _launch_module("ProjetoMiniC.src.ir")),
                 ("Análise Sintática", lambda: _launch_module("ProjetoMiniC.src.parser")),
-                ("Análise Semântica", lambda: messagebox.showinfo("Em desenvolvimento", "Análise semântica ainda não implementada.")),
+                ("Análise Semântica", lambda: _launch_module("ProjetoMiniC.src.semantic")),
                 ("Gerador de Código", lambda: messagebox.showinfo("Em desenvolvimento", "Gerador de código ainda não implementado.")),
                 ("Otimizador", lambda: messagebox.showinfo("Em desenvolvimento", "Otimizador ainda não implementado.")),
             ]
