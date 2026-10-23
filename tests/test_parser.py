@@ -1,6 +1,9 @@
 """Regression and grammar-boundary tests shared by both MiniC parsers."""
 
+import os
+import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -9,6 +12,20 @@ from ProjetoMiniC.src.parser.__main__ import analisar_fonte
 
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def _find_gcc() -> str:
+    found = shutil.which("gcc")
+    if found:
+        return found
+    for candidate in (
+        "C:/msys64/ucrt64/bin/gcc.exe",
+        "C:/msys64/mingw64/bin/gcc.exe",
+        "C:/MinGW/bin/gcc.exe",
+    ):
+        if Path(candidate).is_file():
+            return candidate
+    return "gcc"
 
 
 VALID_CASES = {
@@ -43,15 +60,46 @@ INVALID_CASES = {
 class ParserCliTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        subprocess.run(["make", "parser"], cwd=ROOT, check=True,
-                       stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        cls.gcc = _find_gcc()
+        gcc_dir = str(Path(cls.gcc).resolve().parent)
+        if gcc_dir not in os.environ.get("PATH", ""):
+            os.environ["PATH"] = gcc_dir + os.pathsep + os.environ.get("PATH", "")
+        if shutil.which("make"):
+            subprocess.run(["make", "parser"], cwd=ROOT, check=True,
+                           stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        elif Path(cls.gcc).is_file() or shutil.which(cls.gcc):
+            ext = ".exe" if os.name == "nt" else ""
+            subprocess.run([cls.gcc, "-Wall", "-Wextra", "-std=c11", "parser.c", "-o", f"parser{ext}"],
+                           cwd=ROOT, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        else:
+            raise unittest.SkipTest("Neither 'make' nor 'gcc' is available to build the C parser.")
 
     def run_parser(self, command, source):
-        with tempfile.NamedTemporaryFile("w", suffix=".minic", encoding="utf-8") as stream:
+        cmd = list(command)
+        if cmd[0] == "python3":
+            cmd[0] = sys.executable
+        elif cmd[0] in ("./parser", "parser"):
+            if os.name == "nt":
+                candidate = ROOT / "parser.exe"
+                cmd[0] = str(candidate) if candidate.exists() else str(ROOT / "parser")
+            else:
+                cmd[0] = str(ROOT / "parser")
+
+        with tempfile.NamedTemporaryFile("w", suffix=".minic", encoding="utf-8", delete=False) as stream:
             stream.write(source)
-            stream.flush()
-            return subprocess.run(command + [stream.name], cwd=ROOT, text=True,
-                                  stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            temp_path = stream.name
+
+        try:
+            res = subprocess.run(cmd + [temp_path], cwd=ROOT, text=True,
+                                 stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            res.stdout = res.stdout.replace("\r\n", "\n")
+            res.stderr = res.stderr.replace("\r\n", "\n")
+            return res
+        finally:
+            try:
+                Path(temp_path).unlink()
+            except OSError:
+                pass
 
     def test_valid_grammar_and_python_c_ast_parity(self):
         for name, source in VALID_CASES.items():

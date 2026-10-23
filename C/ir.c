@@ -385,6 +385,40 @@ static char *ir_emit_expr_raw(IrContext *ctx, const AstNode *node) {
     }
 
     if (node->kind == AST_BINARY) {
+        if (strcmp(node->text, "&&") == 0) {
+            char *temp = ir_new_temp(ctx);
+            char *left_val = ir_emit_expr(ctx, node->children[0]);
+            ir_emit(ctx, IR_COPY, NULL, temp, left_val, NULL, ctx->in_function);
+            free(left_val);
+            char *end_label = ir_new_label(ctx);
+            ir_emit(ctx, IR_IF_FALSE, NULL, end_label, temp, NULL, ctx->in_function);
+            char *right_val = ir_emit_expr(ctx, node->children[1]);
+            ir_emit(ctx, IR_COPY, NULL, temp, right_val, NULL, ctx->in_function);
+            free(right_val);
+            ir_emit(ctx, IR_LABEL, NULL, end_label, NULL, NULL, ctx->in_function);
+            free(end_label);
+            return temp;
+        }
+
+        if (strcmp(node->text, "||") == 0) {
+            char *temp = ir_new_temp(ctx);
+            char *left_val = ir_emit_expr(ctx, node->children[0]);
+            ir_emit(ctx, IR_COPY, NULL, temp, left_val, NULL, ctx->in_function);
+            free(left_val);
+            char *rhs_label = ir_new_label(ctx);
+            char *end_label = ir_new_label(ctx);
+            ir_emit(ctx, IR_IF_FALSE, NULL, rhs_label, temp, NULL, ctx->in_function);
+            ir_emit(ctx, IR_GOTO, NULL, end_label, NULL, NULL, ctx->in_function);
+            ir_emit(ctx, IR_LABEL, NULL, rhs_label, NULL, NULL, ctx->in_function);
+            free(rhs_label);
+            char *right_val = ir_emit_expr(ctx, node->children[1]);
+            ir_emit(ctx, IR_COPY, NULL, temp, right_val, NULL, ctx->in_function);
+            free(right_val);
+            ir_emit(ctx, IR_LABEL, NULL, end_label, NULL, NULL, ctx->in_function);
+            free(end_label);
+            return temp;
+        }
+
         char *left_val = ir_emit_expr(ctx, node->children[0]);
         char *right_val = ir_emit_expr(ctx, node->children[1]);
         char *temp = ir_new_temp(ctx);

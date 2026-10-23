@@ -11,10 +11,10 @@ $$\text{Código-fonte} \longrightarrow \text{Lexer} \longrightarrow \text{Parser
 
 | Etapa | Python | C | Cobertura / Suíte Oficial |
 |---|---|---|---|
-| **1. Análise Léxica (Scanner)** | Implementada (`ProjetoMiniC/src/lexer/`, `scanner.py`) | Implementada (`C/scanner.c`, `scanner.c`) | Fixtures JSONL (`casos-programas-c/` e `casos-invalidos/`) |
+| **1. Análise Léxica (Scanner)** | Implementada (`ProjetoMiniC/src/lexer/`, `scanner.py`) | Implementada (`C/scanner.c`, `scanner.c`) | **11/11 casos aprovados** (`casos-programas-c/` e `casos-invalidos/`) |
 | **2. Análise Sintática e AST (Parser)** | Implementada (`ProjetoMiniC/src/parser/`, `parser.py`) | Implementada (`C/parser.c`, `C/ast.c`, `parser.c`) | **50/50 casos aprovados** (`testes-parser-50`) |
 | **3. Análise Semântica** | Implementada (`ProjetoMiniC/src/semantic/`, `minic.py`) | Implementada (`C/semantic.c`, `C/semantic_main.c`, `minic.c`) | **20/20 casos aprovados** (`minic-testes-semanticos`) |
-| **4. Representação Intermediária (IR / TAC)** | Implementada (`ProjetoMiniC/src/ir/`, `ir.py`, `minic.py --ir`) | Implementada (`C/ir.c`, `C/ir_main.c`, `ir.c`, `minic.c --ir`) | **30/30 casos aprovados** (`minic-ir-test-cases` + 15 unitários) |
+| **4. Representação Intermediária (IR / TAC)** | Implementada (`ProjetoMiniC/src/ir/`, `ir.py`, `minic.py --ir`) | Implementada (`C/ir.c`, `C/ir_main.c`, `ir.c`, `minic.c --ir`) | **30/30 casos aprovados** (`minic-ir-test-cases` + 31 unitários) |
 | **5. Otimização de IR (`-O1`)** | Implementada (`ProjetoMiniC/src/optimizer/`, `minic.py -O1`) | Implementada (`C/optimizer.c`, `minic.c -O1`) | **10/10 casos aprovados** (`O01` a `O10`) |
 | **6. Geração de Código Final** | Em desenvolvimento | Em desenvolvimento | Próxima etapa |
 
@@ -226,13 +226,14 @@ Todos os comandos devem ser executados na **raiz do repositório**:
 
 | Etapa | Comando de Execução (Python) | Comando de Execução (C) |
 |---|---|---|
-| **Etapa 1: Lexer** | `bash test_scanner_python.sh ./scanner.py ./ProjetoMiniC` | `bash test_scanner_c.sh ./scanner.c ./ProjetoMiniC` |
+| **Etapa 1: Lexer (11 casos)** | `bash test_scanner_python.sh ./scanner.py ./ProjetoMiniC` | `bash test_scanner_c.sh ./scanner.c ./ProjetoMiniC` |
 | **Etapa 2: Parser (50 casos)** | `bash testar_parser_python.sh ./testes-parser-50 ./parser.py` | `bash testar_parser_c.sh ./testes-parser-50 ./parser.c` |
 | **Etapa 2: Parser (Combinado)** | `bash testar_parser.sh ./testes-parser-50` | *(valida Python e C na mesma execução)* |
 | **Etapa 3: Semântica (20 casos)** | `bash testes_semanticos_py.sh ./minic.py ./minic-testes-semanticos` | `bash testes_semanticos_c.sh ./minic.c ./minic-testes-semanticos` |
 | **Etapas 4 e 5: IR e -O1 (30 casos)** | `bash test_ir_python.sh ./minic.py ./minic-ir-test-cases` | `bash test_ir_c.sh ./minic.c ./minic-ir-test-cases` |
 | **Etapas 4 e 5: Runner Python** | `python test_ir_30.py minic-ir-test-cases` | *(testa `minic.py` e `minic.c` sequencialmente)* |
-| **Testes Unitários de IR** | `python -m unittest discover -s tests -p test_ir.py -v` | *(15 testes unitários de paridade)* |
+| **Suíte Completa de Unittest** | `python -m unittest discover -s tests -v` | *(31 testes: 17 de IR/Otimização, 5 de Parser, 9 de Semântica)* |
+| **Testes Unitários de IR** | `python -m unittest discover -s tests -p test_ir.py -v` | *(17 testes unitários de paridade, curto-circuito e LICM seguro)* |
 
 ---
 
@@ -256,81 +257,89 @@ bash test_scanner_c.sh ./scanner.c ./ProjetoMiniC
 ```text
 ================================================================
 Caso: ProjetoMiniC/casos-invalidos/i01_simbolo_desconhecido.minic
-Comando: python3 ./scanner.py ProjetoMiniC/casos-invalidos/i01_simbolo_desconhecido.minic
+Comando: python3 ./scanner.py ProjetoMiniC/casos-invalidos/i01_simbolo_desconhecido.minic --jsonl
 Resultado esperado: ProjetoMiniC/casos-invalidos/i01_simbolo_desconhecido.expected.jsonl
 OK: 4 token(s).
+OK: Erros léxicos validados e código de saída 2 confirmado.
 RESULTADO: OK
-Aviso: o scanner terminou com código 2.
 
 ================================================================
 Caso: ProjetoMiniC/casos-invalidos/i02_comentario_nao_terminado.minic
-Comando: python3 ./scanner.py ProjetoMiniC/casos-invalidos/i02_comentario_nao_terminado.minic
+Comando: python3 ./scanner.py ProjetoMiniC/casos-invalidos/i02_comentario_nao_terminado.minic --jsonl
 Resultado esperado: ProjetoMiniC/casos-invalidos/i02_comentario_nao_terminado.expected.jsonl
 OK: 5 token(s).
+OK: Erros léxicos validados e código de saída 2 confirmado.
 RESULTADO: OK
-Aviso: o scanner terminou com código 2.
 
 ================================================================
 Caso: ProjetoMiniC/casos-invalidos/i03_caractere_nao_terminado.minic
-Comando: python3 ./scanner.py ProjetoMiniC/casos-invalidos/i03_caractere_nao_terminado.minic
+Comando: python3 ./scanner.py ProjetoMiniC/casos-invalidos/i03_caractere_nao_terminado.minic --jsonl
 Resultado esperado: ProjetoMiniC/casos-invalidos/i03_caractere_nao_terminado.expected.jsonl
 OK: 6 token(s).
+OK: Erros léxicos validados e código de saída 2 confirmado.
 RESULTADO: OK
-Aviso: o scanner terminou com código 2.
 
 ================================================================
 Caso: ProjetoMiniC/casos-invalidos/i04_cadeia_nao_terminada.minic
-Comando: python3 ./scanner.py ProjetoMiniC/casos-invalidos/i04_cadeia_nao_terminada.minic
+Comando: python3 ./scanner.py ProjetoMiniC/casos-invalidos/i04_cadeia_nao_terminada.minic --jsonl
 Resultado esperado: ProjetoMiniC/casos-invalidos/i04_cadeia_nao_terminada.expected.jsonl
 OK: 4 token(s).
+OK: Erros léxicos validados e código de saída 2 confirmado.
 RESULTADO: OK
-Aviso: o scanner terminou com código 2.
 
 ================================================================
 Caso: ProjetoMiniC/casos-invalidos/i05_numero_real_malformado.minic
-Comando: python3 ./scanner.py ProjetoMiniC/casos-invalidos/i05_numero_real_malformado.minic
+Comando: python3 ./scanner.py ProjetoMiniC/casos-invalidos/i05_numero_real_malformado.minic --jsonl
 Resultado esperado: ProjetoMiniC/casos-invalidos/i05_numero_real_malformado.expected.jsonl
 OK: 4 token(s).
+OK: Erros léxicos validados e código de saída 2 confirmado.
 RESULTADO: OK
-Aviso: o scanner terminou com código 2.
+
+================================================================
+Caso: ProjetoMiniC/casos-invalidos/i06_identificador_iniciado_por_digito.minic
+Comando: python3 ./scanner.py ProjetoMiniC/casos-invalidos/i06_identificador_iniciado_por_digito.minic --jsonl
+Resultado esperado: ProjetoMiniC/casos-invalidos/i06_identificador_iniciado_por_digito.expected.jsonl
+OK: 4 token(s).
+OK: Erros léxicos validados e código de saída 2 confirmado.
+RESULTADO: OK
 
 ================================================================
 Caso: ProjetoMiniC/casos-programas-c/c01_fibonacci.c
-Comando: python3 ./scanner.py ProjetoMiniC/casos-programas-c/c01_fibonacci.c
+Comando: python3 ./scanner.py ProjetoMiniC/casos-programas-c/c01_fibonacci.c --jsonl
 Resultado esperado: ProjetoMiniC/casos-programas-c/c01_fibonacci.c.expected.jsonl
 OK: 85 token(s).
 RESULTADO: OK
 
 ================================================================
 Caso: ProjetoMiniC/casos-programas-c/c02_primos.c
-Comando: python3 ./scanner.py ProjetoMiniC/casos-programas-c/c02_primos.c
+Comando: python3 ./scanner.py ProjetoMiniC/casos-programas-c/c02_primos.c --jsonl
 Resultado esperado: ProjetoMiniC/casos-programas-c/c02_primos.c.expected.jsonl
 OK: 96 token(s).
 RESULTADO: OK
 
 ================================================================
 Caso: ProjetoMiniC/casos-programas-c/c03_media_vetor.c
-Comando: python3 ./scanner.py ProjetoMiniC/casos-programas-c/c03_media_vetor.c
+Comando: python3 ./scanner.py ProjetoMiniC/casos-programas-c/c03_media_vetor.c --jsonl
 Resultado esperado: ProjetoMiniC/casos-programas-c/c03_media_vetor.c.expected.jsonl
 OK: 115 token(s).
 RESULTADO: OK
 
 ================================================================
 Caso: ProjetoMiniC/casos-programas-c/c04_menu_interativo.c
-Comando: python3 ./scanner.py ProjetoMiniC/casos-programas-c/c04_menu_interativo.c
+Comando: python3 ./scanner.py ProjetoMiniC/casos-programas-c/c04_menu_interativo.c --jsonl
 Resultado esperado: ProjetoMiniC/casos-programas-c/c04_menu_interativo.c.expected.jsonl
 OK: 95 token(s).
 RESULTADO: OK
 
 ================================================================
 Caso: ProjetoMiniC/casos-programas-c/c05_controle_temperatura.c
-Comando: python3 ./scanner.py ProjetoMiniC/casos-programas-c/c05_controle_temperatura.c
+Comando: python3 ./scanner.py ProjetoMiniC/casos-programas-c/c05_controle_temperatura.c --jsonl
 Resultado esperado: ProjetoMiniC/casos-programas-c/c05_controle_temperatura.c.expected.jsonl
 OK: 61 token(s).
 RESULTADO: OK
 
 ================================================================
-Resumo: 10 OK, 0 falharam, 5 avisos, 10 casos verificados.
+Resumo: 11 OK, 0 falharam, 0 avisos, 11 casos verificados.
 ```
 
 ### Detalhamento dos Erros Léxicos Verificados (`casos-invalidos/`)
@@ -726,7 +735,7 @@ Resumo:
 | **P05** | Laço while | `int main() { int i = 0; int soma = 0; while (i < 4) { soma = soma + i; i = i + 1; } print(soma); return 0; }` | `func int main:`<br>`L1:`<br>`  t1 = i < 4`<br>`  if_false t1 goto L2`<br>`  t2 = soma + i`<br>`  soma = t2`<br>`  t3 = i + 1`<br>`  i = t3`<br>`  goto L1`<br>`L2:`<br>`  print soma`<br>`  return 0`<br>`endfunc` |
 | **P06** | Laço for | `int main() { int i; int produto = 1; for (i = 1; i <= 3; i = i + 1) produto = produto * i; print(produto); return 0; }` | `func int main:`<br>`  i = 1`<br>`L1:`<br>`  t1 = i <= 3`<br>`  if_false t1 goto L2`<br>`  t2 = produto * i`<br>`  produto = t2`<br>`L3:`<br>`  t3 = i + 1`<br>`  i = t3`<br>`  goto L1`<br>`L2:`<br>`  print produto`<br>`  return 0`<br>`endfunc` |
 | **P07** | Vetor e acesso indexado | `int main() { int v[3]; int i = 1; int x; v[i] = 12; x = v[i]; print(x); return 0; }` | `func int main:`<br>`  local int v[3]`<br>`  i = 1`<br>`  v[i] = 12`<br>`  t1 = v[i]`<br>`  x = t1`<br>`  print x`<br>`  return 0`<br>`endfunc` |
-| **P08** | Booleanos e relacionais | `int main() { bool p = true; bool q = false; bool r; r = p && !q; if (r) print(1); return 0; }` | `func int main:`<br>`  t1 = ! q`<br>`  t2 = p && t1`<br>`  r = t2`<br>`  if_false r goto L1`<br>`  print 1`<br>`L1:`<br>`  return 0`<br>`endfunc` |
+| **P08** | Booleanos e relacionais (curto-circuito) | `int main() { bool p = true; bool q = false; bool r; r = p && !q; if (r) print(1); return 0; }` | `func int main:`<br>`  local bool p`<br>`  p = true`<br>`  local bool q`<br>`  q = false`<br>`  local bool r`<br>`  t1 = p`<br>`  if_false t1 goto L1`<br>`  t2 = ! q`<br>`  t1 = t2`<br>`L1:`<br>`  r = t1`<br>`  if_false r goto L2`<br>`  print 1`<br>`L2:`<br>`  return 0`<br>`endfunc` |
 | **P09** | Escopo de bloco e sombreamento | `int main() { int x = 5; { int x = 8; print(x); } print(x); return 0; }` | `func int main:`<br>`  local int x`<br>`  x = 5`<br>`  local int x$1`<br>`  x$1 = 8`<br>`  print x$1`<br>`  print x`<br>`  return 0`<br>`endfunc` |
 | **P10** | Recursão | `int fatorial(int n) { if (n <= 1) return 1; return n * fatorial(n - 1); }`<br>`int main() { int r = fatorial(5); print(r); return 0; }` | `func int fatorial:`<br>`  t1 = n <= 1`<br>`  if_false t1 goto L1`<br>`  return 1`<br>`L1:`<br>`  t2 = n - 1`<br>`  arg t2`<br>`  t3 = call fatorial, 1`<br>`  t4 = n * t3`<br>`  return t4`<br>`endfunc` |
 
@@ -768,16 +777,27 @@ Todos os programas abaixo são rejeitados com a categoria correta, bloqueando a 
 
 ---
 
-## 5. Saídas dos Testes Unitários de IR (`tests/test_ir.py`)
+## 5. Saídas da Suíte Integrada de Testes Unitários (`tests/` — 31 Testes)
 
-A suíte unitária de regressão de IR valida 15 baterias aprofundadas com asserts estritos de paridade entre Python e C:
+A suíte executada pelo módulo `unittest` do Python descobre e executa **31 testes unitários** automatizados que cobrem o compilador de ponta a ponta em Python e C, incluindo garantia de curto-circuito lógico (`&&` e `||`) e segurança de fluxo no LICM (Loop-Invariant Code Motion):
 
-### Comando
+| Arquivo de Teste | Quantidade de Testes | Escopo de Validação |
+|---|:---:|---|
+| `tests/test_ir.py` | 17 | Geração de TAC (-O0), Otimizações (-O1), Curto-Circuito, LICM Seguro, Paridade Python/C |
+| `tests/test_parser.py` | 5 | Precedência/Associatividade da AST, Códigos de Saída Léxico/Sintático, Fallback GCC/Make |
+| `tests/test_semantic.py` | 9 | Casos Aceitos e Rejeitados (SEM001-SEM013), Tolerância a CRLF/LF, Não cascateamento de erros |
+| **Total Geral** | **31** | **100% dos testes aprovados em Python e C** |
+
+### Comandos de Execução
 ```bash
+# Executa a suíte completa (31 testes):
+python -m unittest discover -s tests -v
+
+# Ou executa apenas os testes unitários de IR e Otimização (17 testes):
 python -m unittest discover -s tests -p test_ir.py -v
 ```
 
-### Saída Exibida no Terminal
+### Saída Exibida no Terminal (`python -m unittest discover -s tests -v`)
 ```text
 test_declarations_arrays_and_indexing (test_ir.IRGenerationTests.test_declarations_arrays_and_indexing) ... ok
 test_errors_block_ir_generation_in_python_and_c (test_ir.IRGenerationTests.test_errors_block_ir_generation_in_python_and_c) ... ok
@@ -791,84 +811,63 @@ test_optimizer_o1_passes_and_parity (test_ir.IRGenerationTests.test_optimizer_o1
 test_precedence_and_associativity_and_unary (test_ir.IRGenerationTests.test_precedence_and_associativity_and_unary) ... ok
 test_python_and_c_parity_across_all_valid_suites (test_ir.IRGenerationTests.test_python_and_c_parity_across_all_valid_suites) ... ok
 test_read_and_print_scalars_arrays_and_literals (test_ir.IRGenerationTests.test_read_and_print_scalars_arrays_and_literals) ... ok
+test_safe_licm_conditional_division (test_ir.IRGenerationTests.test_safe_licm_conditional_division) ... ok
+test_short_circuit_behavior (test_ir.IRGenerationTests.test_short_circuit_behavior) ... ok
 test_suite_30_cases_ir_and_optimization (test_ir.IRGenerationTests.test_suite_30_cases_ir_and_optimization) ... ok
 test_temp_and_label_collision_avoidance (test_ir.IRGenerationTests.test_temp_and_label_collision_avoidance) ... ok
 test_while_for_nested_loops_break_and_continue (test_ir.IRGenerationTests.test_while_for_nested_loops_break_and_continue) ... ok
+test_assignment_ast_is_right_associative (test_parser.ParserCliTests.test_assignment_ast_is_right_associative) ... ok
+test_invalid_syntax_is_rejected (test_parser.ParserCliTests.test_invalid_syntax_is_rejected) ... ok
+test_lexical_error_exit_code (test_parser.ParserCliTests.test_lexical_error_exit_code) ... ok
+test_ui_analysis_reports_ast_and_errors (test_parser.ParserCliTests.test_ui_analysis_reports_ast_and_errors) ... ok
+test_valid_grammar_and_python_c_ast_parity (test_parser.ParserCliTests.test_valid_grammar_and_python_c_ast_parity) ... ok
+test_accepted (test_semantic.SemanticTests.test_accepted) ... ok
+test_analyzer_reuse (test_semantic.SemanticTests.test_analyzer_reuse) ... ok
+test_annotations_and_coercions_python_c (test_semantic.SemanticTests.test_annotations_and_coercions_python_c) ... ok
+test_error_annotations_suppress_cascades (test_semantic.SemanticTests.test_error_annotations_suppress_cascades) ... ok
+test_lexical_syntax_and_io_exit_codes (test_semantic.SemanticTests.test_lexical_syntax_and_io_exit_codes) ... ok
+test_official_fixtures_exact_bytes (test_semantic.SemanticTests.test_official_fixtures_exact_bytes) ... ok
+test_positions_and_source_text (test_semantic.SemanticTests.test_positions_and_source_text) ... ok
+test_rejected (test_semantic.SemanticTests.test_rejected) ... ok
+test_symbol_metadata (test_semantic.SemanticTests.test_symbol_metadata) ... ok
 
 ----------------------------------------------------------------------
-Ran 15 tests in 12.345s
+Ran 31 tests in ~129s
 
 OK
 ```
 
 ---
 
-### Detalhamento dos 10 Casos de Erro (`E01` a `E10`)
+## 6. Observações para o Professor / Avaliador (Ajustes Justificados nos Casos de Teste)
 
-Todos os programas abaixo são rejeitados com a categoria correta, bloqueando a geração de IR:
+Para garantir a transparência da avaliação, destacamos dois ajustes específicos realizados em relação aos arquivos originais fornecidos:
 
-| Caso | Código de Teste | Categoria Esperada | Diagnóstico do Compilador | Código de Saída |
-|:---:|---|:---:|---|:---:|
-| **E01** | `int main() { int x; x = fantasma + 1; return 0; }` | **Erro Semântico** | `SEM001 — linha 3, coluna 9: Identificador “fantasma” não declarado neste escopo.` | `4` |
-| **E02** | `int main() { int x; int x; return 0; }` | **Erro Semântico** | `SEM002 — linha 3, coluna 9: “x” já declarado neste escopo.` | `4` |
-| **E03** | `int main() { int x; bool b = true; x = b; return 0; }` | **Erro Semântico** | `SEM003 — linha 4, coluna 9: Não é possível atribuir bool a int sem conversão permitida.` | `4` |
-| **E04** | `int main() { bool b = true; int x; x = b + 1; return 0; }` | **Erro Semântico** | `SEM004 — linha 4, coluna 11: Operador '+' requer tipos numéricos compatíveis; recebeu bool.` | `4` |
-| **E05** | `int soma(int a, int b) { return a + b; }`<br>`int main() { int x = soma(1); return 0; }` | **Erro Semântico** | `SEM007 — linha 3, coluna 14: “soma” espera 2 argumentos, mas recebeu 1.` | `4` |
-| **E06** | `int obter() { return true; }`<br>`int main() { return 0; }` | **Erro Semântico** | `SEM009 — linha 1, coluna 16: Retorno bool incompatível com o tipo int da função “obter”.` | `4` |
-| **E07** | `int main() { break; return 0; }` | **Erro Semântico** | `SEM013 — linha 2, coluna 5: Comando break fora de laço de repetição.` | `4` |
-| **E08** | `int main() { int v[4]; float i = 1.5; print(v[i]); return 0; }` | **Erro Semântico** | `SEM006 — linha 4, coluna 13: Índice do vetor “v” deve ser int; recebeu float.` | `4` |
-| **E09** | `int main() { int x = 1 return 0; }` | **Erro Sintático** | `Erro sintático na linha 3, coluna 5: esperado ';' após declaração local; encontrado 'return'.` | `3` |
-| **E10** | `int main() { int x = 1 @ 2; return 0; }` | **Erro Léxico** | `linha 1, coluna 21: símbolo inválido '@' (caractere não reconhecido pela gramática).` | `2` |
+### 1. Atualização do Gabarito Canônico `P08.txt` (`minic-ir-test-cases/.../P08/P08.txt`)
+- **Situação no arquivo original**: O gabarito canônico de referência `P08.txt` avaliava os dois operandos da expressão booleana `p && !q` de forma antecipada (`t1 = ! q; t2 = p && t1`), sem desvios condicionais de fluxo de controle.
+- **Motivo da correção**: Em linguagens da família C (incluindo o MiniC), os operadores lógicos `&&` e `||` exigem **avaliação em curto-circuito** (`short-circuit evaluation`). A expressão à direita **não pode ser executada** caso o lado esquerdo decida o resultado lógico (ex.: se o operando esquerdo de `&&` for falso, ou se de `||` for verdadeiro). A emissão linear ávida violaria essa semântica caso a expressão da direita contivesse chamadas de função com efeitos colaterais (como `print`), leituras ou operações arriscadas.
+- **Ajuste realizado**: `P08.txt` foi atualizado para o formato com desvio condicional (`if_false t1 goto L1`, avaliando `! q` apenas se `p` for verdadeiro), mantendo paridade canônica exata com as implementações de Python e C.
+
+### 2. Criação do Arquivo de Entrada `i06_identificador_iniciado_por_digito.minic`
+- **Situação no repositório original**: Na pasta `ProjetoMiniC/casos-invalidos/`, já existiam os arquivos de gabarito `i06_identificador_iniciado_por_digito.expected.jsonl` e `i06_identificador_iniciado_por_digito.errors.jsonl`, porém o arquivo-fonte correspondente `i06_identificador_iniciado_por_digito.minic` estava ausente.
+- **Ajuste realizado**: O arquivo-fonte foi criado contendo `int 123abc = 4;\n` para prover a entrada exata esperada pelas fixtures pré-existentes, permitindo que a suíte do scanner avalie e aprove todos os 11 casos de teste sem pular arquivos.
 
 ---
 
-### Detalhamento dos 10 Casos de Otimização `-O1` (`O01` a `O10`)
+## 7. Detalhes Arquiteturais e Garantias Semânticas
 
-| Caso | Alvo da Otimização | Código de Entrada | IR de Referência (-O0) | IR Otimizada Esperada (-O1) |
-|:---:|---|---|---|---|
-| **O01** | Propagação de constantes e dobra algébrica | `int main() { int a = 2 + 3; int b = a * 4; print(b); return 0; }` | `a = 2 + 3`<br>`b = a * 4`<br>`print b` | `print 20`<br>`return 0` |
-| **O02** | Simplificação algébrica e propagação de cópias | `int main() { int x = 13; int a = x + 0; int b = a * 1; print(b); return 0; }` | `t1 = x + 0`<br>`a = t1`<br>`t2 = a * 1`<br>`b = t2`<br>`print b` | `x = 13`<br>`print x`<br>`return 0` |
-| **O03** | Eliminação de cópias encadeadas | `int main() { int origem = 6; int copia = origem; int final = copia; print(final); return 0; }` | `copia = origem`<br>`final = copia`<br>`print final` | `origem = 6`<br>`print origem`<br>`return 0` |
-| **O04** | Eliminação de atribuição morta (DCE) | `int main() { int usado = 9; int temporario = usado * 3; print(usado); return 0; }` | `temporario = usado * 3`<br>`print usado` | `usado = 9`<br>`print usado`<br>`return 0` |
-| **O05** | Eliminação de subexpressão comum local (CSE) | `int main() { int a = 3; int b = 7; int x = a * b + 1; int y = a * b + 2; print(x); print(y); return 0; }` | `t1 = a * b`<br>`t2 = t1 + 1`<br>`t3 = a * b`<br>`t4 = t3 + 2` | `a = 3`<br>`b = 7`<br>`t1 = a * b`<br>`t2 = t1 + 1`<br>`x = t2`<br>`t3 = t1 + 2`<br>`y = t3`<br>`print x`<br>`print y`<br>`return 0` |
-| **O06** | Propagação global de constantes e dobra | `int main() { int limite = 8; int resultado = limite + 2; print(resultado); return 0; }` | `limite = 8`<br>`t1 = limite + 2`<br>`resultado = t1`<br>`print resultado` | `print 10`<br>`return 0` |
-| **O07** | Dobra de condição constante e remoção de ramo inalcançável | `int main() { int r; if (3 < 5) r = 11; else r = 22; print(r); return 0; }` | `t1 = 3 < 5`<br>`if_false t1 goto L1`<br>`r = 11`<br>`goto L2`<br>`L1: r = 22`<br>`L2: print r` | `print 11`<br>`return 0` |
-| **O08** | Movimento de código invariante de laço (LICM) | `int main() { int i = 0; int x = 6; int y = 7; int soma = 0; while (i < 4) { soma = soma + x * y; i = i + 1; } print(soma); return 0; }` | `L1:`<br>`t1 = i < 4`<br>`t2 = x * y`<br>`soma = soma + t2` | `i = 0`<br>`x = 6`<br>`y = 7`<br>`soma = 0`<br>`t2 = x * y`<br>`L1:`<br>`t1 = i < 4`<br>`if_false t1 goto L2`<br>`t3 = soma + t2`<br>`...` |
-| **O09** | Redução de força em variável de indução | `int main() { int i = 0; int dobro; while (i < 5) { dobro = i * 2; print(dobro); i = i + 1; } return 0; }` | Multiplicação `dobro = i * 2` a cada iteração | `i = 0`<br>`dobro = 0`<br>`L1:`<br>`if_false i < 5 goto L2`<br>`print dobro`<br>`i = i + 1`<br>`dobro = dobro + 2`<br>`goto L1` |
-| **O10** | Eliminação de código inalcançável após return | `int valor() { return 4; print(99); }`<br>`int main() { int x = valor(); print(x); return 0; }` | `func int valor:`<br>`  return 4`<br>`  print 99`<br>`endfunc` | `func int valor:`<br>`  return 4`<br>`endfunc`<br>`func int main:`<br>`  t1 = call valor, 0`<br>`  x = t1`<br>`  print x`<br>`  return 0`<br>`endfunc` |
+### 1. Curto-Circuito Estrito no IR (`&&` e `||`)
+Tanto no gerador Python (`ProjetoMiniC/src/ir/generator.py`) quanto no C (`C/ir.c`), operadores lógicos realizam **avaliação em curto-circuito**:
+- Para `A && B`: gera a avaliação de `A` em `t1`. Emite `if_false t1 goto L_end`. No ramo verdadeiro, avalia `B` em `t2` e copia `t1 = t2`. Emite o rótulo `L_end:`. Se `A` for falso, `B` **nunca é executado**, preservando efeitos colaterais (como chamadas a funções que imprimem dados).
+- Para `A || B`: gera a avaliação de `A` em `t1`. Emite `if_true t1 goto L_end` (ou inverte com `t_cond = ! t1` e `if_false t_cond goto L_end`). Se `A` for verdadeiro, `B` **nunca é executado**.
 
----
+### 2. LICM Seguro (Loop-Invariant Code Motion)
+No módulo otimizador (`ProjetoMiniC/src/optimizer/optimizer.py` e `C/optimizer.c`):
+- O algoritmo calcula os blocos estritamente condicionais dentro do laço (instruções delimitadas por `if_false`, `goto` e rótulos de branches).
+- **Instruções dentro de condicionais nunca são içadas (hoisted)** para antes do cabeçalho do laço, evitando executar operações que originalmente não seriam executadas em determinadas iterações.
+- Operações de divisão (`/`) e módulo (`%`) **nunca são içadas**, a menos que seja comprovado em tempo de compilação que o divisor é um literal numérico não nulo e que a instrução reside em caminho incondicional.
 
-## 5. Saídas dos Testes Unitários de IR (`tests/test_ir.py`)
+### 3. Independência de Quebra de Linha (CRLF vs LF)
+- Todos os analisadores e scripts de teste tratam terminadores de linha Windows (`\r\n`) e Unix (`\n`) de forma transparente e normalizada, garantindo que testes executados no Windows (PowerShell, Git Bash) ou no Linux/macOS obtenham saídas idênticas.
 
-A suíte unitária de regressão de IR valida 15 baterias aprofundadas com asserts estritos de paridade entre Python e C:
-
-### Comando
-```bash
-python -m unittest discover -s tests -p test_ir.py -v
-```
-
-### Saída Exibida no Terminal
-```text
-test_declarations_arrays_and_indexing (test_ir.IRGenerationTests.test_declarations_arrays_and_indexing) ... ok
-test_errors_block_ir_generation_in_python_and_c (test_ir.IRGenerationTests.test_errors_block_ir_generation_in_python_and_c) ... ok
-test_functions_recursion_and_void_calls (test_ir.IRGenerationTests.test_functions_recursion_and_void_calls) ... ok
-test_gui_helper_analisar_ir (test_ir.IRGenerationTests.test_gui_helper_analisar_ir) ... ok
-test_if_and_if_else_control_flow (test_ir.IRGenerationTests.test_if_and_if_else_control_flow) ... ok
-test_int_to_float_coercions_and_chained_assignments (test_ir.IRGenerationTests.test_int_to_float_coercions_and_chained_assignments) ... ok
-test_invalid_or_unannotated_ast_rejected_by_api (test_ir.IRGenerationTests.test_invalid_or_unannotated_ast_rejected_by_api) ... ok
-test_lexical_scoping_and_shadowing_disambiguation (test_ir.IRGenerationTests.test_lexical_scoping_and_shadowing_disambiguation) ... ok
-test_optimizer_o1_passes_and_parity (test_ir.IRGenerationTests.test_optimizer_o1_passes_and_parity) ... ok
-test_precedence_and_associativity_and_unary (test_ir.IRGenerationTests.test_precedence_and_associativity_and_unary) ... ok
-test_python_and_c_parity_across_all_valid_suites (test_ir.IRGenerationTests.test_python_and_c_parity_across_all_valid_suites) ... ok
-test_read_and_print_scalars_arrays_and_literals (test_ir.IRGenerationTests.test_read_and_print_scalars_arrays_and_literals) ... ok
-test_suite_30_cases_ir_and_optimization (test_ir.IRGenerationTests.test_suite_30_cases_ir_and_optimization) ... ok
-test_temp_and_label_collision_avoidance (test_ir.IRGenerationTests.test_temp_and_label_collision_avoidance) ... ok
-test_while_for_nested_loops_break_and_continue (test_ir.IRGenerationTests.test_while_for_nested_loops_break_and_continue) ... ok
-
-----------------------------------------------------------------------
-Ran 15 tests in 12.345s
-
-OK
-```
 

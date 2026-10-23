@@ -374,6 +374,10 @@ class Scanner:
 
 def main() -> int:
     """Função de entrada do CLI ao rodar diretamente o módulo scanner.py."""
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
+    if hasattr(sys.stderr, "reconfigure"):
+        sys.stderr.reconfigure(encoding="utf-8")
     caminho_alvo: str | None = None
     modo_apenas_jsonl = True
 

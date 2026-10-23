@@ -40,7 +40,7 @@ class ErroSimboloInvalido(ErroLexico):
 
 
 class ErroIdentificadorInvalido(ErroLexico):
-    codigo = "IDENTIFICADOR_INVALIDO"
+    codigo = "INVALID_IDENTIFIER"
 
     def __init__(self, lexema: str, linha: int, coluna: int):
         super().__init__(

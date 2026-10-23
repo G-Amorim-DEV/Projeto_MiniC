@@ -55,11 +55,16 @@ def main(argv=None):
     if tree is None:
         for error in parser.errors: print(str(error), file=sys.stderr)
         return 3
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
+    if hasattr(sys.stderr, "reconfigure"):
+        sys.stderr.reconfigure(encoding="utf-8")
+
     errors = SemanticAnalyzer().analyze(tree)
     if errors:
         lines = [str(error) for error in errors]
         lines.append(f'Análise semântica concluída: {len(errors)} {"erro" if len(errors) == 1 else "erros"}; programa rejeitado.')
-        sys.stdout.buffer.write('\r\n'.join(lines).encode('utf-8'))
+        sys.stdout.write('\n'.join(lines))
         return 4
     if emit_ir:
         ir_program = generate_ir(tree)
@@ -68,7 +73,7 @@ def main(argv=None):
         print(format_ir(ir_program))
         return 0
     lines = ['Análise semântica concluída: 0 erros; programa aceito.']
-    sys.stdout.buffer.write('\r\n'.join(lines).encode('utf-8'))
+    sys.stdout.write('\n'.join(lines))
     return 0
 
 

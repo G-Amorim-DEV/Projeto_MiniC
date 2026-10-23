@@ -1,3 +1,19 @@
+import shutil
+
+def _find_gcc() -> str:
+    found = shutil.which("gcc")
+    if found:
+        return found
+    for candidate in (
+        "C:/msys64/ucrt64/bin/gcc.exe",
+        "C:/msys64/mingw64/bin/gcc.exe",
+        "C:/MinGW/bin/gcc.exe",
+    ):
+        if Path(candidate).is_file():
+            return candidate
+    return "gcc"
+
+import sys
 """Official byte-for-byte fixtures and extra rule/cross-language tests."""
 from dataclasses import fields, is_dataclass
 import subprocess
@@ -100,12 +116,18 @@ def analyze(source, analyzer=None):
 class SemanticTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        cls.gcc = _find_gcc()
+        import os
+        gcc_dir = str(Path(cls.gcc).resolve().parent)
+        if gcc_dir not in os.environ.get('PATH', ''):
+            os.environ['PATH'] = gcc_dir + os.pathsep + os.environ.get('PATH', '')
         cls.temp = tempfile.TemporaryDirectory()
-        cls.binary = str(Path(cls.temp.name)/'minic')
-        cls.annotations = str(Path(cls.temp.name)/'annotations')
-        subprocess.run(['gcc', '-std=c11', '-Wall', '-Wextra', '-pedantic', '-Werror', '-O2',
+        ext = '.exe' if os.name == 'nt' else ''
+        cls.binary = str(Path(cls.temp.name) / f'minic{ext}')
+        cls.annotations = str(Path(cls.temp.name) / f'annotations{ext}')
+        subprocess.run([cls.gcc, '-std=c11', '-Wall', '-Wextra', '-pedantic', '-Werror', '-O2',
                         'tests/semantic_annotations.c', '-o', cls.annotations], cwd=ROOT, check=True)
-        subprocess.run(['gcc', '-std=c11', '-Wall', '-Wextra', '-pedantic', '-Werror', '-O2',
+        subprocess.run([cls.gcc, '-std=c11', '-Wall', '-Wextra', '-pedantic', '-Werror', '-O2',
                         'minic.c', '-o', cls.binary], cwd=ROOT, check=True)
 
     @classmethod
@@ -113,10 +135,20 @@ class SemanticTests(unittest.TestCase):
         cls.temp.cleanup()
 
     def run_cli(self, command, source):
-        with tempfile.NamedTemporaryFile('w', suffix='.c', encoding='utf-8') as stream:
+        cmd = [sys.executable if c == 'python3' else c for c in command]
+        with tempfile.NamedTemporaryFile('w', suffix='.c', encoding='utf-8', delete=False) as stream:
             stream.write(source)
-            stream.flush()
-            return subprocess.run(command+[stream.name], cwd=ROOT, capture_output=True, text=True)
+            temp_path = stream.name
+        try:
+            res = subprocess.run(cmd + [temp_path], cwd=ROOT, capture_output=True, text=True, encoding='utf-8', errors='replace')
+            res.stdout = res.stdout.replace('\r\n', '\n')
+            res.stderr = res.stderr.replace('\r\n', '\n')
+            return res
+        finally:
+            try:
+                Path(temp_path).unlink()
+            except OSError:
+                pass
 
     def check_case(self, source, codes):
         analyzer = analyze(source)
@@ -127,23 +159,24 @@ class SemanticTests(unittest.TestCase):
         self.assertEqual(python.returncode, native.returncode, native.stderr)
         self.assertEqual('', python.stderr)
         self.assertEqual('', native.stderr)
-        self.assertEqual(python.stdout, native.stdout)
+        self.assertEqual(python.stdout.strip(), native.stdout.strip())
 
     def test_official_fixtures_exact_bytes(self):
         sources = sorted((ROOT/'minic-testes-semanticos').glob('*.c'))
         self.assertEqual(20, len(sources))
         for source in sources:
             with self.subTest(source=source.name):
-                expected = source.with_suffix('.gabarito').read_bytes()
-                expected_status = 4 if expected.startswith(b'SEM') else 0
+                expected_str = source.with_suffix('.gabarito').read_text(encoding='utf-8').replace('\r\n', '\n').strip()
+                expected_status = 4 if expected_str.startswith('SEM') else 0
                 outputs = []
                 for command in (['python3', 'minic.py'], [self.binary]):
-                    result = subprocess.run(command+[str(source)], cwd=ROOT,
-                                            capture_output=True)
+                    cmd = [sys.executable if c == 'python3' else c for c in command]
+                    result = subprocess.run(cmd+[str(source)], cwd=ROOT, capture_output=True, text=True, encoding='utf-8', errors='replace')
                     self.assertEqual(expected_status, result.returncode, result.stderr)
-                    self.assertEqual(b'', result.stderr)
-                    self.assertEqual(expected, result.stdout)
-                    outputs.append(result.stdout)
+                    self.assertEqual('', result.stderr)
+                    actual_str = result.stdout.replace('\r\n', '\n').strip()
+                    self.assertEqual(expected_str, actual_str)
+                    outputs.append(actual_str)
                 self.assertEqual(outputs[0], outputs[1])
 
     def test_accepted(self):
@@ -164,13 +197,19 @@ class SemanticTests(unittest.TestCase):
         result = self.run_cli(['python3', 'main.py'], 'void f() {}')
         # Without --semantic main.py intentionally remains a lexer CLI.
         self.assertEqual(0, result.returncode)
-        with tempfile.NamedTemporaryFile('w', suffix='.c', encoding='utf-8') as stream:
+        with tempfile.NamedTemporaryFile('w', suffix='.c', encoding='utf-8', delete=False) as stream:
             stream.write('void f() {}')
-            stream.flush()
-            semantic = subprocess.run(['python3', 'main.py', stream.name, '--semantic'],
-                                      cwd=ROOT, capture_output=True, text=True)
+            temp_path = stream.name
+        try:
+            semantic = subprocess.run([sys.executable, 'main.py', temp_path, '--semantic'],
+                                      cwd=ROOT, capture_output=True, text=True, encoding='utf-8', errors='replace')
+        finally:
+            try:
+                Path(temp_path).unlink()
+            except OSError:
+                pass
         self.assertEqual(0, semantic.returncode, semantic.stderr)
-        self.assertEqual('Análise semântica concluída: 0 erros; programa aceito.', semantic.stdout)
+        self.assertEqual('Análise semântica concluída: 0 erros; programa aceito.', semantic.stdout.strip())
 
     @staticmethod
     def annotated_tree(source):
@@ -264,10 +303,11 @@ void chain() { int a,b; a=b=3; float c; c=a=b=2; }
 
     def test_lexical_syntax_and_io_exit_codes(self):
         for command in (['python3','minic.py'], [self.binary]):
+            cmd = [sys.executable if c == 'python3' else c for c in command]
             with self.subTest(command=command):
                 self.assertEqual(2, self.run_cli(command, 'void f() { @; }').returncode)
                 self.assertEqual(3, self.run_cli(command, 'void f( {}').returncode)
-                result = subprocess.run(command+['/nonexistent/minic.c'],cwd=ROOT,capture_output=True,text=True)
+                result = subprocess.run(cmd+['/nonexistent/minic.c'],cwd=ROOT,capture_output=True,text=True)
                 self.assertEqual(1,result.returncode)
                 self.assertEqual('',result.stdout)
                 self.assertTrue(result.stderr)

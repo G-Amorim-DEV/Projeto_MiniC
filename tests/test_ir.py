@@ -155,12 +155,20 @@ func int main:
   t3 = - a
   t4 = t2 - t3
   x = t4
-  t5 = x > 5
-  t6 = b <= c
-  t7 = t5 && t6
-  t8 = a == 0
-  t9 = t7 || t8
-  t10 = ! t9
+  t7 = x > 5
+  t6 = t7
+  if_false t6 goto L1
+  t8 = b <= c
+  t6 = t8
+  L1:
+  t5 = t6
+  if_false t5 goto L2
+  goto L3
+  L2:
+  t9 = a == 0
+  t5 = t9
+  L3:
+  t10 = ! t5
   ok = t10
   return x
 endfunc
@@ -702,6 +710,91 @@ endfunc
                 for proc in (py_cli, c_cli, ir_py_cli, ir_c_cli):
                     self.assertEqual(0, proc.returncode, proc.stderr)
                     self.assertEqual(py_tac.strip(), proc.stdout.strip())
+
+    def test_short_circuit_behavior(self) -> None:
+        """Verifica curto-circuito em && e || com funções que geram efeito colateral."""
+        cases = [
+            ("false_and", "bool r = false && (side() == 1);", False),
+            ("true_and", "bool r = true && (side() == 1);", True),
+            ("true_or", "bool r = true || (side() == 1);", False),
+            ("false_or", "bool r = false || (side() == 1);", True),
+        ]
+        for name, expr, should_call in cases:
+            source = f"""
+            int side() {{
+                print(99);
+                return 1;
+            }}
+            int main() {{
+                {expr}
+                return 0;
+            }}
+            """
+            for opt_flag, optimize in (("-O0", False), ("-O1", True)):
+                with self.subTest(case=name, opt=opt_flag):
+                    py_tac = compile_to_ir_python(source, optimize=optimize)
+                    py_cli = self.run_cli([sys.executable, "minic.py", opt_flag, "--ir"], source)
+                    c_cli = self.run_cli([self.minic_bin, opt_flag, "--ir"], source)
+
+                    self.assertEqual(0, py_cli.returncode, py_cli.stderr)
+                    self.assertEqual(0, c_cli.returncode, c_cli.stderr)
+                    self.assertEqual(py_tac.strip(), py_cli.stdout.strip())
+                    self.assertEqual(py_tac.strip(), c_cli.stdout.strip())
+
+                    # Simula a execução do TAC
+                    sim = test_ir_30.simulate_tac(py_tac)
+                    if should_call:
+                        self.assertEqual(["99"], sim.prints, f"Esperado chamada a side() em {name} {opt_flag}")
+                    else:
+                        self.assertEqual([], sim.prints, f"Não deveria chamar side() em {name} {opt_flag}")
+
+    def test_safe_licm_conditional_division(self) -> None:
+        """Verifica que divisão dentro de if em laço não é movida para antes da condição."""
+        source = """
+        int main() {
+            bool cond;
+            read(cond);
+            int zero = 0;
+            int i = 0;
+            int res = 0;
+            while (i < 2) {
+                if (cond) {
+                    int d = 10 / zero;
+                    res = res + d;
+                }
+                i = i + 1;
+            }
+            if (cond) {
+                print(res);
+            }
+            return 0;
+        }
+        """
+        for opt_flag, optimize in (("-O0", False), ("-O1", True)):
+            with self.subTest(opt=opt_flag):
+                py_tac = compile_to_ir_python(source, optimize=optimize)
+                py_cli = self.run_cli([sys.executable, "minic.py", opt_flag, "--ir"], source)
+                c_cli = self.run_cli([self.minic_bin, opt_flag, "--ir"], source)
+
+                self.assertEqual(0, py_cli.returncode, py_cli.stderr)
+                self.assertEqual(0, c_cli.returncode, c_cli.stderr)
+                self.assertEqual(py_tac.strip(), py_cli.stdout.strip())
+                self.assertEqual(py_tac.strip(), c_cli.stdout.strip())
+
+                # Confirma que '10 / zero' NÃO foi movido para antes do laço ou antes da condição
+                lines = [line.strip() for line in py_tac.splitlines() if line.strip()]
+                # Encontra onde está o laço e onde está a divisão
+                loop_start_idx = -1
+                div_idx = -1
+                for idx, line in enumerate(lines):
+                    if line.startswith("L") and line.endswith(":"):
+                        if loop_start_idx == -1:
+                            loop_start_idx = idx
+                    if "/ zero" in line or "/ 0" in line:
+                        div_idx = idx
+
+                self.assertNotEqual(-1, div_idx, "Divisão deve estar presente no TAC")
+                self.assertGreater(div_idx, loop_start_idx, "A divisão não deve ser movida para antes do laço!")
 
     def test_suite_30_cases_ir_and_optimization(self) -> None:
         suite_path = str(ROOT / "minic-ir-test-cases")

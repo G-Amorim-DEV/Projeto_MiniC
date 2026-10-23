@@ -79,6 +79,14 @@ char *read_file(const char *path) {
     char *buffer = (char *)xmalloc(length + 1);
     size_t read_bytes = fread(buffer, 1, length, f);
     buffer[read_bytes] = '\0';
+    size_t j = 0;
+    for (size_t i = 0; i < read_bytes; i++) {
+        if (buffer[i] == '\r' && (i + 1 < read_bytes) && buffer[i + 1] == '\n') {
+            continue;
+        }
+        buffer[j++] = buffer[i];
+    }
+    buffer[j] = '\0';
 
     fclose(f);
     return buffer;

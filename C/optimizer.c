@@ -701,6 +701,24 @@ static void opt_hoist_licm(OptInstList *body, char **globals, size_t global_coun
             if (ins->kind == IR_READ && ins->dest) wc_inc(&wcs, &wc_n, &wc_cap, ins->dest);
         }
 
+        char *is_conditional = (char *)calloc(body->count, sizeof(char));
+        for (size_t k = idx + 1; k < back_idx; ++k) {
+            const IrInstruction *ins = &body->items[k];
+            if ((ins->kind == IR_IF_FALSE || ins->kind == IR_GOTO) && ins->dest) {
+                for (size_t m = idx + 1; m < back_idx; ++m) {
+                    if (body->items[m].kind == IR_LABEL && body->items[m].dest &&
+                        strcmp(body->items[m].dest, ins->dest) == 0) {
+                        size_t start_m = (k < m) ? k : m;
+                        size_t end_m = (k < m) ? m : k;
+                        for (size_t p = start_m; p <= end_m; ++p) {
+                            is_conditional[p] = 1;
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+
         OptInstList hoisted, kept;
         opt_list_init(&hoisted);
         opt_list_init(&kept);
@@ -710,12 +728,23 @@ static void opt_hoist_licm(OptInstList *body, char **globals, size_t global_coun
             int can_hoist = 0;
             if (ins->kind == IR_BINARY && ins->op && ins->dest && ins->arg1 && ins->arg2 &&
                 opt_is_temp(ins->dest, NULL) && wc_get(wcs, wc_n, ins->dest) == 1) {
-                if (k + 1 < back_idx && body->items[k + 1].kind == IR_IF_FALSE &&
+                if (is_conditional[k]) {
+                    can_hoist = 0;
+                } else if (k + 1 < back_idx && body->items[k + 1].kind == IR_IF_FALSE &&
                     body->items[k + 1].arg1 && strcmp(body->items[k + 1].arg1, ins->dest) == 0) {
                     can_hoist = 0;
-                } else if ((strcmp(ins->op, "/") == 0 || strcmp(ins->op, "%") == 0) &&
-                           (strcmp(ins->arg2, "0") == 0 || strcmp(ins->arg2, "0.0") == 0)) {
-                    can_hoist = 0;
+                } else if (strcmp(ins->op, "/") == 0 || strcmp(ins->op, "%") == 0) {
+                    if (!(opt_is_int_lit(ins->arg2) || opt_is_float_lit(ins->arg2)) || atof(ins->arg2) == 0.0) {
+                        can_hoist = 0;
+                    } else if (wc_get(wcs, wc_n, ins->arg1) == 0 && wc_get(wcs, wc_n, ins->arg2) == 0) {
+                        if (has_call_or_array_store &&
+                            (opt_str_in_list(globals, global_count, ins->arg1) ||
+                             opt_str_in_list(globals, global_count, ins->arg2))) {
+                            can_hoist = 0;
+                        } else {
+                            can_hoist = 1;
+                        }
+                    }
                 } else if (wc_get(wcs, wc_n, ins->arg1) == 0 && wc_get(wcs, wc_n, ins->arg2) == 0) {
                     if (has_call_or_array_store &&
                         (opt_str_in_list(globals, global_count, ins->arg1) ||
@@ -733,6 +762,7 @@ static void opt_hoist_licm(OptInstList *body, char **globals, size_t global_coun
                 opt_list_push(&kept, opt_dup_inst(ins));
             }
         }
+        free(is_conditional);
         wc_free(wcs, wc_n);
 
         if (hoisted.count > 0) {

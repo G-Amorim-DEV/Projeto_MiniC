@@ -1,47 +1,57 @@
 #!/usr/bin/env bash
-# Testa um analisador léxico escrito em C com arquivos .c e .minic.
+# Testa um analisador léxico escrito em Python com arquivos .c e .minic.
 #
 # Uso:
-#   ./testar_scanner_c.sh [scanner.c] [pasta-de-testes]
+#   ./test_scanner_python.sh [scanner.py] [pasta-de-testes]
 #
 # O scanner deve aceitar:
-#   ./scanner arquivo.c
-#   ./scanner arquivo.minic
+#   ./scanner.py arquivo.c --jsonl
+#   ./scanner.py arquivo.minic --jsonl
 #
 # A saída padrão deve conter um objeto JSON por linha, compatível com os
 # arquivos <entrada>.expected.jsonl. Diagnósticos esperados podem ser
 # armazenados em <entrada>.errors.jsonl.
 
+set -euo pipefail
+
+export PYTHONUTF8=1
+export PYTHONIOENCODING=utf-8
 
 SCANNER="${1:-scanner.py}"
 TESTS_DIR="${2:-.}"
 PYTHON_BIN="${PYTHON_BIN:-python3}"
 TOTAL=0
-PASSED=0
-FAILED=0
-SKIPPED=0
+PASS=0
+FAIL=0
+WARN=0
 
 compare_jsonl() {
-    local actual="$1" expected_tokens="$2"
-    python3 - "$actual" "$expected_tokens" <<'PY'
+    local actual="$1" expected="$2" kind="${3:-tokens}"
+    "$PYTHON_BIN" - "$actual" "$expected" "$kind" <<'PY'
 import json
 import sys
 from pathlib import Path
 
-actual_path, expected_tokens_path = sys.argv[1:]
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8")
+
+actual_path, expected_path, kind = sys.argv[1:4]
 
 def read_jsonl(path):
     values = []
-    if not Path(path).exists():
+    p = Path(path)
+    if not p.exists():
         return values
-    for number, line in enumerate(Path(path).read_text(encoding='utf-8').splitlines(), 1):
+    for number, line in enumerate(p.read_text(encoding='utf-8', errors='replace').splitlines(), 1):
         if not line.strip():
             continue
         try:
             values.append(json.loads(line))
         except json.JSONDecodeError as exc:
             print(f'FALHA: JSON inválido em {path}:{number}: {exc}')
-            raise SystemExit(1)
+            sys.exit(1)
     return values
 
 def first_difference(got, want):
@@ -55,42 +65,69 @@ def first_difference(got, want):
             return
 
 produced = read_jsonl(actual_path)
-expected_tokens = read_jsonl(expected_tokens_path)
-produced_tokens = [x for x in produced if 'token' in x]
-ok = True
+expected = read_jsonl(expected_path)
+if kind == 'tokens':
+    produced_items = [x for x in produced if 'token' in x]
+else:
+    produced_items = [x for x in produced if 'error' in x]
 
-if produced_tokens != expected_tokens:
-    print(f'FALHA: sequência de tokens diferente.')
-    first_difference(produced_tokens, expected_tokens)
-    ok = False
-if ok:
-    print(f'OK: {len(produced_tokens)} token(s).')
-raise SystemExit(0 if ok else 1)
+if produced_items != expected:
+    print(f'FALHA: sequência de {kind} diferente.')
+    first_difference(produced_items, expected)
+    sys.exit(1)
+
+print(f'OK: {len(produced_items)} {kind}.')
+sys.exit(0)
 PY
 }
 
 run_case() {
     local input="$1" expected="$2" label="${1#./}"
+    local errors_expected="${expected%.expected.jsonl}.errors.jsonl"
     TOTAL=$((TOTAL + 1))
     printf '\n================================================================\nCaso: %s\n' "$label"
-    printf 'Comando: %s %s %s\n' "$PYTHON_BIN" "$SCANNER" "$input"
+    printf 'Comando: %s %s %s --jsonl\n' "$PYTHON_BIN" "$SCANNER" "$input"
     printf 'Resultado esperado: %s\n' "$expected"
 
+    local expected_status=0
+    if [[ -f "$errors_expected" ]]; then
+        expected_status=2
+    fi
+
     set +e
-    "$PYTHON_BIN" "$SCANNER" "$input" > output.jsonl
+    "$PYTHON_BIN" "$SCANNER" "$input" --jsonl > output_tokens.jsonl 2> output_errors.jsonl
     status=$?
     set -e
 
-    if compare_jsonl output.jsonl "$expected"; then
+    local case_failed=0
+
+    if ! compare_jsonl output_tokens.jsonl "$expected" "tokens"; then
+        echo 'RESULTADO: FALHOU — tokens diferentes do esperado'
+        case_failed=1
+    fi
+
+    if [[ -f "$errors_expected" ]]; then
+        if ! compare_jsonl output_errors.jsonl "$errors_expected" "erros"; then
+            echo 'RESULTADO: FALHOU — erros diferentes do esperado'
+            case_failed=1
+        fi
+    else
+        if [[ -s output_errors.jsonl ]]; then
+            echo 'RESULTADO: FALHOU — erros inesperados emitidos'
+            case_failed=1
+        fi
+    fi
+
+    if (( status != expected_status )); then
+        echo "RESULTADO: FALHOU — código de saída $status (esperado: $expected_status)"
+        case_failed=1
+    fi
+
+    if (( case_failed == 0 )); then
         echo 'RESULTADO: OK'
         PASS=$((PASS + 1))
     else
-        echo 'RESULTADO: FALHOU — tokens diferentes do esperado'
         FAIL=$((FAIL + 1))
-    fi
-    if (( status != 0 )); then
-        WARN=$((WARN + 1))
-        echo "Aviso: o scanner terminou com código $status."
     fi
 }
 
@@ -99,18 +136,21 @@ mapfile -t expected_files < <(find "$TESTS_DIR" -type f -name '*.expected.jsonl'
 
 for expected in "${expected_files[@]}"; do
     input="${expected%.expected.jsonl}"
-    if [[ -f "$input" || -f "$input.minic" ]]; then
+    if [[ -f "$input" || -f "$input.minic" || -f "$input.c" ]]; then
         if [[ -f "$input" ]]; then
             run_case "$input" "$expected"
-        fi
-        if [[ -f "$input.minic" ]]; then
+        elif [[ -f "$input.minic" ]]; then
             run_case "$input.minic" "$expected"
+        elif [[ -f "$input.c" ]]; then
+            run_case "$input.c" "$expected"
         fi
     else
         echo "AVISO: entrada correspondente não encontrada para $expected" >&2
         WARN=$((WARN + 1))
     fi
 done
+
+rm -f output_tokens.jsonl output_errors.jsonl
 
 printf '\n================================================================\n'
 printf 'Resumo: %d OK, %d falharam, %d avisos, %d casos verificados.\n' "$PASS" "$FAIL" "$WARN" "$TOTAL"

@@ -19,8 +19,9 @@ if [[ ! -d "$diretorio" ]]; then
   exit 2
 fi
 
-if ! command -v python3 >/dev/null 2>&1; then
-  echo "Erro: python3 não está disponível." >&2
+PYTHON_BIN="${PYTHON_BIN:-python3}"
+if ! command -v "$PYTHON_BIN" >/dev/null 2>&1; then
+  echo "Erro: $PYTHON_BIN não está disponível." >&2
   exit 2
 fi
 
@@ -42,9 +43,12 @@ while IFS= read -r -d '' teste; do
     continue
   fi
 
-  python3 "$arquivo_fonte" "$teste" >"$saida" 2>&1 || true
+  "$PYTHON_BIN" "$arquivo_fonte" "$teste" >"$saida" 2>&1 || true
 
-  if diff -u -- "$gabarito" "$saida" >"$tmp_dir/diff-$total.txt"; then
+  tr -d '\r' < "$gabarito" > "$tmp_dir/norm_gabarito-$total.txt"
+  tr -d '\r' < "$saida" > "$tmp_dir/norm_saida-$total.txt"
+
+  if diff -u "$tmp_dir/norm_gabarito-$total.txt" "$tmp_dir/norm_saida-$total.txt" >"$tmp_dir/diff-$total.txt"; then
     printf '[OK]     %s\n' "$teste"
     aprovados=$((aprovados + 1))
   else

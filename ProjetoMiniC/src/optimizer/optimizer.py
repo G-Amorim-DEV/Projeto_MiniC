@@ -460,6 +460,21 @@ def _hoist_loop_invariant_code(
             if ins.kind == "READ" and ins.dest:
                 write_counts[ins.dest] = write_counts.get(ins.dest, 0) + 1
 
+        internal_labels = {}
+        for k in range(idx + 1, back_idx):
+            if current[k].kind == "LABEL" and current[k].dest:
+                internal_labels[current[k].dest] = k
+
+        conditional_indices = set()
+        for k in range(idx + 1, back_idx):
+            ins = current[k]
+            if ins.kind in ("IF_FALSE", "GOTO") and ins.dest in internal_labels:
+                target_k = internal_labels[ins.dest]
+                start_k = min(k, target_k)
+                end_k = max(k, target_k)
+                for m in range(start_k, end_k + 1):
+                    conditional_indices.add(m)
+
         hoisted: List[IRInstruction] = []
         kept: List[IRInstruction] = []
         for k in range(idx + 1, back_idx):
@@ -474,14 +489,27 @@ def _hoist_loop_invariant_code(
                 and _is_temp(ins.dest)
                 and write_counts.get(ins.dest, 0) == 1
             ):
-                if (
+                if k in conditional_indices:
+                    can_hoist = False
+                elif (
                     k + 1 < back_idx
                     and current[k + 1].kind == "IF_FALSE"
                     and current[k + 1].arg1 == ins.dest
                 ):
                     can_hoist = False
-                elif ins.op in ("/", "%") and ins.arg2 in ("0", "0.0"):
-                    can_hoist = False
+                elif ins.op in ("/", "%"):
+                    if not (
+                        (_is_int_lit(ins.arg2) or _is_float_lit(ins.arg2))
+                        and float(ins.arg2) != 0
+                    ):
+                        can_hoist = False
+                    elif ins.arg1 not in write_counts and ins.arg2 not in write_counts:
+                        if has_call_or_array_store and (
+                            ins.arg1 in globals_set or ins.arg2 in globals_set
+                        ):
+                            can_hoist = False
+                        else:
+                            can_hoist = True
                 elif ins.arg1 not in write_counts and ins.arg2 not in write_counts:
                     if has_call_or_array_store and (
                         ins.arg1 in globals_set or ins.arg2 in globals_set

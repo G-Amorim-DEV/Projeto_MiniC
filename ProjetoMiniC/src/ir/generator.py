@@ -457,6 +457,31 @@ class IRGenerator:
             return temp
 
         if isinstance(node, Binary):
+            if node.operator == "&&":
+                temp = self._new_temp()
+                left_val = self._emit_expr(node.left)
+                self._emit("COPY", dest=temp, arg1=left_val)
+                end_label = self._new_label()
+                self._emit("IF_FALSE", dest=end_label, arg1=temp)
+                right_val = self._emit_expr(node.right)
+                self._emit("COPY", dest=temp, arg1=right_val)
+                self._emit("LABEL", dest=end_label)
+                return temp
+
+            if node.operator == "||":
+                temp = self._new_temp()
+                left_val = self._emit_expr(node.left)
+                self._emit("COPY", dest=temp, arg1=left_val)
+                rhs_label = self._new_label()
+                end_label = self._new_label()
+                self._emit("IF_FALSE", dest=rhs_label, arg1=temp)
+                self._emit("GOTO", dest=end_label)
+                self._emit("LABEL", dest=rhs_label)
+                right_val = self._emit_expr(node.right)
+                self._emit("COPY", dest=temp, arg1=right_val)
+                self._emit("LABEL", dest=end_label)
+                return temp
+
             left_val = self._emit_expr(node.left)
             right_val = self._emit_expr(node.right)
             temp = self._new_temp()

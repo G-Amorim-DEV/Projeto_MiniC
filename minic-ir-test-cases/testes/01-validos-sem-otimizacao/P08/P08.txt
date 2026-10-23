@@ -1,12 +1,15 @@
 Resultado: COMPILAR COM SUCESSO
 Modo de referência: IR sem otimização (-O0)
-IR canônica esperada (curto-circuito ou operação lógica explícita):
+IR canônica esperada (curto-circuito):
 func main
   p = true
   q = false
-  t1 = not q
-  t2 = p and t1
-  r = t2
+  t1 = p
+  if_false t1 goto L1
+  t2 = not q
+  t1 = t2
+L1:
+  r = t1
   ifFalse r goto L_end_if
   print 1
 L_end_if:
