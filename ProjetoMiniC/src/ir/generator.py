@@ -46,11 +46,13 @@ class IRGenerator:
         self._decl_names: Dict[int, str] = {}
         self._global_var_names: Set[str] = set()
         self._seen_in_scope_group: Set[str] = set()
+        self._reserved_names: Set[str] = set()
 
     def generate(self, program: Program) -> IRProgram:
         """Valida a AST anotada e gera o programa em Representação Intermediária."""
         self.__init__()
         self._validate_ast(program)
+        self._collect_reserved_names(program)
 
         for decl in program.declarations:
             if isinstance(decl, VarDecl):
@@ -67,13 +69,32 @@ class IRGenerator:
 
         return self.program_ir
 
+    def _collect_reserved_names(self, program: Program) -> None:
+        for node in self._walk(program):
+            if isinstance(node, (Function, VarDecl, Parameter)):
+                self._reserved_names.add(node.name)
+                symbol = getattr(node, "resolved_symbol", None)
+                scope = getattr(symbol, "scope", 0)
+                if scope and scope > 0:
+                    self._reserved_names.add(f"{node.name}${scope}")
+            elif isinstance(node, Id):
+                self._reserved_names.add(node.name)
+
     def _new_temp(self) -> str:
-        self._temp_counter += 1
-        return f"t{self._temp_counter}"
+        while True:
+            self._temp_counter += 1
+            candidate = f"t{self._temp_counter}"
+            if candidate not in self._reserved_names:
+                self._reserved_names.add(candidate)
+                return candidate
 
     def _new_label(self) -> str:
-        self._label_counter += 1
-        return f"L{self._label_counter}"
+        while True:
+            self._label_counter += 1
+            candidate = f"L{self._label_counter}"
+            if candidate not in self._reserved_names:
+                self._reserved_names.add(candidate)
+                return candidate
 
     def _emit(
         self,

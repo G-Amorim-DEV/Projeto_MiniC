@@ -11,14 +11,9 @@ import os
 import sys
 from dataclasses import dataclass
 from pathlib import Path
+import tkinter as tk
+from tkinter import filedialog, messagebox, scrolledtext, ttk
 from typing import Optional
-
-try:
-    import tkinter as tk
-    from tkinter import filedialog, messagebox, scrolledtext, ttk
-    _TKINTER_DISPONIVEL = True
-except ImportError:
-    _TKINTER_DISPONIVEL = False
 
 try:
     from ..lexer.scanner import Scanner
@@ -28,6 +23,7 @@ try:
     from .generator import generate_ir
     from .instructions import IRProgram
     from .printer import format_ir
+    from ..optimizer.optimizer import optimize_ir
 except (ImportError, ValueError):
     from ProjetoMiniC.src.lexer.scanner import Scanner
     from ProjetoMiniC.src.parser.parser import Parser
@@ -36,6 +32,7 @@ except (ImportError, ValueError):
     from ProjetoMiniC.src.ir.generator import generate_ir
     from ProjetoMiniC.src.ir.instructions import IRProgram
     from ProjetoMiniC.src.ir.printer import format_ir
+    from ProjetoMiniC.src.optimizer.optimizer import optimize_ir
 
 EXTENSOES_SUPORTADAS = (
     ("Arquivos MiniC / C", "*.minic;*.mc;*.c;*.txt"),
@@ -81,8 +78,8 @@ class ResultadoIR:
         return self.codigo_saida == 0
 
 
-def analisar_ir(texto_fonte: str) -> ResultadoIR:
-    """Executa Lexer -> Parser -> Análise Semântica -> Geração de IR."""
+def analisar_ir(texto_fonte: str, optimize: bool = False) -> ResultadoIR:
+    """Executa Lexer -> Parser -> Análise Semântica -> Geração de IR (e Otimização se optimize=True)."""
     scanner = Scanner(texto_fonte)
     scanner.scan_tokens()
 
@@ -135,6 +132,8 @@ def analisar_ir(texto_fonte: str) -> ResultadoIR:
         )
 
     ir_prog = generate_ir(programa)
+    if optimize:
+        ir_prog = optimize_ir(ir_prog)
     ir_txt = format_ir(ir_prog)
     return ResultadoIR(
         ir_texto=ir_txt,
@@ -146,16 +145,10 @@ def analisar_ir(texto_fonte: str) -> ResultadoIR:
     )
 
 
-class _IRAppBase(tk.Tk if _TKINTER_DISPONIVEL else object):
-    pass
-
-
-class IRApp(_IRAppBase):
+class IRApp(tk.Tk):
     """Interface gráfica para o Gerador de Representação Intermediária (TAC)."""
 
     def __init__(self) -> None:
-        if not _TKINTER_DISPONIVEL:
-            raise RuntimeError("Tkinter indisponível neste ambiente.")
         super().__init__()
         self.title("MiniC - Gerador de IR (Código de Três Endereços)")
         self.geometry("1100x780")
@@ -277,7 +270,24 @@ class IRApp(_IRAppBase):
 def main(argv: Optional[list[str]] = None) -> int:
     args = sys.argv[1:] if argv is None else argv
     if args:
-        caminho = Path(args[0])
+        optimize = False
+        caminho_str: Optional[str] = None
+        for arg in args:
+            if arg == "-O1":
+                optimize = True
+            elif arg == "-O0":
+                optimize = False
+            elif arg == "--ir":
+                continue
+            elif caminho_str is None:
+                caminho_str = arg
+            else:
+                print("Uso: python -m ProjetoMiniC.src.ir [-O0|-O1] <arquivo.c>", file=sys.stderr)
+                return 1
+        if caminho_str is None:
+            print("Uso: python -m ProjetoMiniC.src.ir [-O0|-O1] <arquivo.c>", file=sys.stderr)
+            return 1
+        caminho = Path(caminho_str)
         if not caminho.exists() or not caminho.is_file():
             print(f"Erro: Arquivo '{caminho}' não encontrado.", file=sys.stderr)
             return 1
@@ -286,7 +296,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         except (OSError, UnicodeError) as exc:
             print(f"Erro ao ler arquivo: {exc}", file=sys.stderr)
             return 1
-        res = analisar_ir(conteudo)
+        res = analisar_ir(conteudo, optimize=optimize)
         if not res.sucesso:
             if res.codigo_saida in (2, 3):
                 for line in res.diagnosticos:
@@ -297,10 +307,6 @@ def main(argv: Optional[list[str]] = None) -> int:
             return res.codigo_saida
         print(res.ir_texto)
         return 0
-
-    if not _TKINTER_DISPONIVEL:
-        print("Tkinter indisponível neste ambiente.", file=sys.stderr)
-        return 1
 
     try:
         app = IRApp()

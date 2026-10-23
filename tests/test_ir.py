@@ -19,8 +19,10 @@ from ProjetoMiniC.src.ir import (
 )
 from ProjetoMiniC.src.ir.__main__ import analisar_ir
 from ProjetoMiniC.src.lexer.scanner import Scanner
+from ProjetoMiniC.src.optimizer import optimize_ir
 from ProjetoMiniC.src.parser import Parser
 from ProjetoMiniC.src.semantic import SemanticAnalyzer
+import test_ir_30
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -39,7 +41,7 @@ def _find_gcc() -> str:
     return "gcc"
 
 
-def compile_to_ir_python(source: str) -> str:
+def compile_to_ir_python(source: str, optimize: bool = False) -> str:
     scanner = Scanner(source)
     scanner.scan_tokens()
     assert not scanner.errors, scanner.errors
@@ -49,6 +51,8 @@ def compile_to_ir_python(source: str) -> str:
     diagnostics = SemanticAnalyzer().analyze(tree)
     assert not diagnostics, diagnostics
     ir_prog = generate_ir(tree)
+    if optimize:
+        ir_prog = optimize_ir(ir_prog)
     return format_ir(ir_prog)
 
 
@@ -612,6 +616,97 @@ endfunc
         self.assertFalse(err_lex.sucesso)
         self.assertEqual(2, err_lex.codigo_saida)
         self.assertEqual("", err_lex.ir_texto)
+
+    def test_temp_and_label_collision_avoidance(self) -> None:
+        # Caso 1: exemplo exato da Fase 2.1 (global t1 = 9)
+        source_global_t1 = """
+        int t1 = 9;
+        int main() {
+            int x;
+            x = 2 + 3;
+            return t1;
+        }
+        """
+        expected_global_t1 = """
+global int t1
+t1 = 9
+func int main:
+  local int x
+  t2 = 2 + 3
+  x = t2
+  return t1
+endfunc
+"""
+        self.assert_ir_matches(source_global_t1, expected_global_t1)
+
+        # Caso 2: colisões múltiplas com parâmetros, locais em sub-blocos e nomes de rótulos (L1)
+        source_multi = """
+        int t1 = 9;
+        int soma_t(int t2) {
+            int t3 = 4;
+            int L1 = 1;
+            {
+                int t4 = 5;
+                if (L1 > 0) {
+                    t3 = t1 + t2 + t4;
+                }
+            }
+            return t3;
+        }
+        int main() {
+            return soma_t(10);
+        }
+        """
+        expected_multi = """
+global int t1
+t1 = 9
+func int soma_t:
+  param int t2
+  local int t3
+  t3 = 4
+  local int L1
+  L1 = 1
+  local int t4
+  t4 = 5
+  t5 = L1 > 0
+  if_false t5 goto L2
+  t6 = t1 + t2
+  t7 = t6 + t4
+  t3 = t7
+  L2:
+  return t3
+endfunc
+func int main:
+  arg 10
+  t8 = call soma_t, 1
+  return t8
+endfunc
+"""
+        self.assert_ir_matches(source_multi, expected_multi)
+
+    def test_optimizer_o1_passes_and_parity(self) -> None:
+        opt_dir = ROOT / "minic-ir-test-cases" / "testes" / "03-otimizacoes"
+        self.assertTrue(opt_dir.is_dir())
+        c_files = sorted(opt_dir.rglob("*.c"))
+        self.assertEqual(10, len(c_files))
+
+        for c_file in c_files:
+            with self.subTest(case=c_file.name):
+                source = c_file.read_text(encoding="utf-8")
+                py_tac = compile_to_ir_python(source, optimize=True)
+                py_cli = self.run_cli([sys.executable, "minic.py", "-O1", "--ir"], source)
+                c_cli = self.run_cli([self.minic_bin, "-O1", "--ir"], source)
+                ir_py_cli = self.run_cli([sys.executable, "ir.py", "-O1"], source)
+                ir_c_cli = self.run_cli([self.ir_bin, "-O1"], source)
+
+                for proc in (py_cli, c_cli, ir_py_cli, ir_c_cli):
+                    self.assertEqual(0, proc.returncode, proc.stderr)
+                    self.assertEqual(py_tac.strip(), proc.stdout.strip())
+
+    def test_suite_30_cases_ir_and_optimization(self) -> None:
+        suite_path = str(ROOT / "minic-ir-test-cases")
+        rc = test_ir_30.main([suite_path])
+        self.assertEqual(0, rc)
 
 
 if __name__ == "__main__":

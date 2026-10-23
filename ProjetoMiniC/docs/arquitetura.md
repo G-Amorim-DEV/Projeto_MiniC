@@ -26,11 +26,16 @@ Código-Fonte (.c / .minic)
 4. Gerador de Representação Intermediária (IR / TAC)
    ├─ Python: ProjetoMiniC/src/ir/ (instructions.py, generator.py, printer.py) | CLI: minic.py --ir / ir.py / main.py --ir
    └─ C:      C/ir.h, C/ir.c, C/ir_main.c                                      | CLI: minic --ir / ir.c / ir
-   │  (Saída: Código de Três Endereços determinístico; código de saída 0)
+   │  (Saída: Código de Três Endereços determinístico sem colisão de temporários/rótulos; código de saída 0)
    ▼
-5. Otimizador e Gerador de Código (estruturas reservadas para etapas futuras)
-   ├─ Python: ProjetoMiniC/src/optimizer/, ProjetoMiniC/src/codegen/
-   └─ C:      a implementar nas próximas etapas
+5. Otimizador de IR (-O1)
+   ├─ Python: ProjetoMiniC/src/optimizer/optimizer.py                          | CLI: minic.py -O1 --ir / ir.py -O1
+   └─ C:      C/optimizer.h, C/optimizer.c                                     | CLI: minic -O1 --ir / ir -O1
+   │  (Passes: dobra/propagação de constantes, identidades algébricas, propagação de cópias,
+   │   eliminação de código morto/inalcançável, CSE local, LICM e redução de força em laços)
+   ▼
+6. Gerador de Código (estrutura reservada para etapa futura)
+   └─ Python: ProjetoMiniC/src/codegen/
 ```
 
 ## Contratos de Códigos de Saída

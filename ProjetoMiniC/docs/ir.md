@@ -71,9 +71,10 @@ As instruções dentro do corpo de funções são indentadas com dois espaços (
 
 ## Regras de Tradução
 
-### 1. Temporários e Rótulos
+### 1. Temporários e Rótulos (Sem Colisão com Identificadores)
 - Temporários são numerados sequencialmente na ordem de avaliação da AST: `t1`, `t2`, `t3`, ...
 - Rótulos são numerados sequencialmente na ordem de construção das estruturas de desvio: `L1`, `L2`, `L3`, ...
+- **Prevenção de colisão:** Antes de emitir qualquer instrução, o gerador coleta todos os identificadores do programa (variáveis globais, locais, parâmetros, funções e nomes com sufixo de escopo `$escopo`) em um conjunto reservado (`_reserved_names` em Python e `reserved_names` em C). Se o programa declarar por exemplo `int t1 = 9;` ou `int L1 = 0;`, o alocador pula automaticamente os nomes ocupados e emite `t2`, `L2`, etc., evitando qualquer colisão entre temporários/rótulos e identificadores do usuário.
 
 ### 2. Escopos e Desambiguação de Identificadores
 O analisador semântico associa cada uso de identificador (`Id` / `Index`) à sua declaração exata e ao número determinístico de seu escopo léxico (`0` para global, `>= 1` para escopos de função e blocos internos):
@@ -129,15 +130,30 @@ em inicializações, atribuições simples e associativas (`c = a = b = 2`), ope
   ```
 Uma pilha de alvos de laço (`(continue_label, break_label)`) garante que `break` e `continue` em laços aninhados sempre desviem para o laço imediatamente envolvente.
 
+## Otimização de IR (`-O1`)
+
+Quando executado com `-O1` (por exemplo `python3 minic.py -O1 --ir arquivo.c` ou `./minic -O1 --ir arquivo.c`), o otimizador (`ProjetoMiniC/src/optimizer/optimizer.py` em Python e `C/optimizer.c` em C) aplica determinísticamente os seguintes passes sobre o `IRProgram`:
+
+1. **Eliminação de código inalcançável e simplificação de CFG:** remove instruções após `return`/`goto` até o próximo rótulo, desvios triviais para o rótulo imediatamente seguinte e rótulos sem referências (`O10`).
+2. **Identidades algébricas:** simplifica `x + 0 → x`, `0 + x → x`, `x - 0 → x`, `x - x → 0`, `x * 1 → x`, `1 * x → x`, `x * 0 → 0`, `x / 1 → x`, `x && true → x`, `x || false → x`, etc. (`O02`).
+3. **Dobra e propagação de constantes e simplificação de desvios constantes:** avalia expressões constantes em tempo de compilação e simplifica `if_false true` / `if_false false`, removendo ramos mortos (`O01`, `O06`, `O07`).
+4. **Movimento de código invariante em laço (LICM):** move cálculos puros cujos operandos não são modificados no corpo do laço para antes do rótulo de cabeçalho do laço (`O08`).
+5. **Redução de força em variáveis de indução:** converte multiplicações lineares pela variável de indução (`v = i * k`) em inicialização antes do laço e atualização incremental aditiva (`v = v + passo * k`) por iteração (`O09`).
+6. **Eliminação de subexpressões comuns locais (CSE):** reutiliza temporários já calculados dentro do mesmo bloco básico quando os operandos não foram alterados (`O05`).
+7. **Propagação de cópias e eliminação de atribuições mortas (DCE):** substitui cópias intermediárias (`O02`, `O03`, `O05`) e remove atribuições e variáveis locais escalares sem efeito observável (`O04`).
+
 ## Organização dos Módulos
 
-- **Python (`ProjetoMiniC/src/ir/`)**:
-  - `instructions.py`: `IRInstruction`, `IRProgram`, `IRGenerationError`.
-  - `generator.py`: `IRGenerator` e `generate_ir(program)`.
-  - `printer.py`: `format_instruction(inst)` e `format_ir(program)`.
-  - `__main__.py`: interface gráfica Tkinter e CLI (`python3 -m ProjetoMiniC.src.ir`).
+- **Python (`ProjetoMiniC/src/ir/` e `ProjetoMiniC/src/optimizer/`)**:
+  - `ir/instructions.py`: `IRInstruction`, `IRProgram`, `IRGenerationError`.
+  - `ir/generator.py`: `IRGenerator` e `generate_ir(program)`.
+  - `ir/printer.py`: `format_instruction(inst)` e `format_ir(program)`.
+  - `ir/__main__.py`: interface gráfica Tkinter e CLI (`python3 -m ProjetoMiniC.src.ir`).
+  - `optimizer/optimizer.py`: `IROptimizer` e `optimize_ir(program)`.
+  - `optimizer/__main__.py`: interface gráfica Tkinter e CLI (`python3 -m ProjetoMiniC.src.optimizer`).
 - **C (`C/`)**:
   - `C/ir.h` e `C/ir.c`: estruturas `IrInstruction`, `IrProgram` e funções `ir_generate`, `ir_format`, `ir_print`.
-  - `C/ir_main.c` e `ir.c`: ponto de entrada dedicado para geração de IR em C.
-  - `C/semantic_main.c` e `minic.c`: integração do modo `--ir` ao wrapper principal.
+  - `C/optimizer.h` e `C/optimizer.c`: função `ir_optimize(IrProgram *program)`.
+  - `C/ir_main.c` e `ir.c`: ponto de entrada dedicado para geração e otimização de IR em C.
+  - `C/semantic_main.c` e `minic.c`: integração dos modos `--ir`, `-O0` e `-O1` ao wrapper principal.
 

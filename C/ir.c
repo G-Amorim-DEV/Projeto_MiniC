@@ -32,6 +32,9 @@ typedef struct {
     char **seen_names;
     size_t seen_count;
     size_t seen_capacity;
+    char **reserved_names;
+    size_t reserved_count;
+    size_t reserved_capacity;
 } IrContext;
 
 static char *ir_extract_decl_type(const AstNode *n) {
@@ -102,22 +105,6 @@ static void ir_emit(
     inst->in_function = in_function;
 }
 
-static char *ir_new_temp(IrContext *ctx) {
-    ctx->temp_counter++;
-    int n = snprintf(NULL, 0, "t%d", ctx->temp_counter);
-    char *buf = xmalloc((size_t)n + 1);
-    snprintf(buf, (size_t)n + 1, "t%d", ctx->temp_counter);
-    return buf;
-}
-
-static char *ir_new_label(IrContext *ctx) {
-    ctx->label_counter++;
-    int n = snprintf(NULL, 0, "L%d", ctx->label_counter);
-    char *buf = xmalloc((size_t)n + 1);
-    snprintf(buf, (size_t)n + 1, "L%d", ctx->label_counter);
-    return buf;
-}
-
 static int ir_name_in_list(char **list, size_t count, const char *name) {
     for (size_t i = 0; i < count; ++i) {
         if (strcmp(list[i], name) == 0) return 1;
@@ -137,6 +124,58 @@ static void ir_add_to_list(char ***list, size_t *count, size_t *cap, const char 
 static void ir_free_list(char **list, size_t count) {
     for (size_t i = 0; i < count; ++i) free(list[i]);
     free(list);
+}
+
+static void ir_collect_reserved_names(IrContext *ctx, const AstNode *node) {
+    if (!node || node->kind == AST_NULL) return;
+    if (node->kind == AST_FUNCTION || node->kind == AST_VAR) {
+        char *raw_name = ir_extract_decl_name(node);
+        ir_add_to_list(&ctx->reserved_names, &ctx->reserved_count, &ctx->reserved_capacity, raw_name);
+        if (node->semantic_scope > 0) {
+            int n = snprintf(NULL, 0, "%s$%d", raw_name, node->semantic_scope);
+            char *scoped = xmalloc((size_t)n + 1);
+            snprintf(scoped, (size_t)n + 1, "%s$%d", raw_name, node->semantic_scope);
+            ir_add_to_list(&ctx->reserved_names, &ctx->reserved_count, &ctx->reserved_capacity, scoped);
+            free(scoped);
+        }
+        free(raw_name);
+    } else if (node->kind == AST_ID) {
+        ir_add_to_list(&ctx->reserved_names, &ctx->reserved_count, &ctx->reserved_capacity, node->text);
+    }
+    for (size_t i = 0; i < node->parameter_count; ++i) {
+        ir_collect_reserved_names(ctx, node->parameters[i]);
+    }
+    for (size_t i = 0; i < node->count; ++i) {
+        ir_collect_reserved_names(ctx, node->children[i]);
+    }
+}
+
+static char *ir_new_temp(IrContext *ctx) {
+    for (;;) {
+        ctx->temp_counter++;
+        int n = snprintf(NULL, 0, "t%d", ctx->temp_counter);
+        char *buf = xmalloc((size_t)n + 1);
+        snprintf(buf, (size_t)n + 1, "t%d", ctx->temp_counter);
+        if (!ir_name_in_list(ctx->reserved_names, ctx->reserved_count, buf)) {
+            ir_add_to_list(&ctx->reserved_names, &ctx->reserved_count, &ctx->reserved_capacity, buf);
+            return buf;
+        }
+        free(buf);
+    }
+}
+
+static char *ir_new_label(IrContext *ctx) {
+    for (;;) {
+        ctx->label_counter++;
+        int n = snprintf(NULL, 0, "L%d", ctx->label_counter);
+        char *buf = xmalloc((size_t)n + 1);
+        snprintf(buf, (size_t)n + 1, "L%d", ctx->label_counter);
+        if (!ir_name_in_list(ctx->reserved_names, ctx->reserved_count, buf)) {
+            ir_add_to_list(&ctx->reserved_names, &ctx->reserved_count, &ctx->reserved_capacity, buf);
+            return buf;
+        }
+        free(buf);
+    }
 }
 
 static void ir_reset_seen_to_globals(IrContext *ctx) {
@@ -671,6 +710,7 @@ int ir_generate(const AstNode *ast_program, IrProgram *out_ir, FILE *err_stream)
     IrContext ctx;
     memset(&ctx, 0, sizeof(ctx));
     ctx.program = out_ir;
+    ir_collect_reserved_names(&ctx, ast_program);
 
     for (size_t i = 0; i < ast_program->count; ++i) {
         const AstNode *decl = ast_program->children[i];
@@ -697,6 +737,7 @@ int ir_generate(const AstNode *ast_program, IrProgram *out_ir, FILE *err_stream)
     free(ctx.decls);
     ir_free_list(ctx.global_names, ctx.global_count);
     ir_free_list(ctx.seen_names, ctx.seen_count);
+    ir_free_list(ctx.reserved_names, ctx.reserved_count);
     return 0;
 }
 

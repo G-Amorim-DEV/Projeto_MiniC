@@ -65,7 +65,7 @@ except ModuleNotFoundError as exc:
 # ======================================================================
 
 def executar_terminal(argumentos: list[str]) -> int:
-    if "--ir" in argumentos:
+    if "--ir" in argumentos or "-O1" in argumentos:
         from minic import main as minic_main
         return minic_main(["--ir"] + [arg for arg in argumentos if arg != "--ir"])
     if "--semantic" in argumentos:
@@ -233,7 +233,7 @@ def iniciar_gui() -> int:
                 ("Análise Sintática", lambda: _launch_module("ProjetoMiniC.src.parser")),
                 ("Análise Semântica", lambda: _launch_module("ProjetoMiniC.src.semantic")),
                 ("Gerador de Código", lambda: messagebox.showinfo("Em desenvolvimento", "Gerador de código ainda não implementado.")),
-                ("Otimizador", lambda: messagebox.showinfo("Em desenvolvimento", "Otimizador ainda não implementado.")),
+                ("Otimizador", lambda: _launch_module("ProjetoMiniC.src.optimizer")),
             ]
 
             for idx, (label, cmd) in enumerate(botoes):

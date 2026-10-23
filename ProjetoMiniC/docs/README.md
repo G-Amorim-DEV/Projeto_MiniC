@@ -1,78 +1,63 @@
-# MiniC em Python
+# MiniC em Python (`ProjetoMiniC`)
 
-Este diretório contém a implementação do compilador MiniC em Python, focada inicialmente na etapa de análise léxica.
+Este diretório contém a implementação modular do compilador **MiniC** em Python, cobrindo o pipeline completo desde a análise léxica até a geração e otimização de Representação Intermediária (IR / TAC), além de interfaces gráficas em Tkinter para cada etapa.
 
-## Objetivo
-
-O projeto identifica e classifica os elementos do código-fonte em tokens, além de detectar erros léxicos, como:
-
-- símbolos inválidos
-- strings não fechadas
-- comentários de bloco sem fechamento
-- literais mal formados
-
-## Estrutura principal
+## Estrutura Principal
 
 ```text
-src/
+ProjetoMiniC/src/
 ├── lexer/
 │   ├── __init__.py
-│   ├── __main__.py
-│   ├── scanner.py
-│   ├── token_types.py
-│   ├── tokens.py
-│   ├── errors.py
-│   └── demo.py
+│   ├── __main__.py        # CLI e GUI (Tkinter) da Análise Léxica
+│   ├── scanner.py         # Varredura léxica e emissão de tokens
+│   ├── token_types.py     # Enumeração dos tipos de tokens e palavras reservadas
+│   ├── tokens.py          # Estrutura de dados de Token e serialização JSONL
+│   ├── errors.py          # Diagnósticos léxicos
+│   └── demo.py            # Exemplos embutidos
 ├── parser/
-├── semantic/
+│   ├── __init__.py
+│   ├── __main__.py        # CLI e GUI (Tkinter) da Análise Sintática
+│   └── parser.py          # Parser recursivo descendente
 ├── ast/
-├── codegen/
+│   ├── __init__.py
+│   └── nodes.py           # Nós da AST, formatação S-expression e árvore
+├── semantic/
+│   ├── __init__.py
+│   ├── __main__.py        # CLI e GUI (Tkinter) da Análise Semântica
+│   └── analyzer.py        # Analisador semântico (SEM001 a SEM013) e tabela de símbolos
 ├── ir/
+│   ├── __init__.py
+│   ├── __main__.py        # CLI e GUI (Tkinter) da Representação Intermediária
+│   └── generator.py       # Gerador de Código de Três Endereços (TAC) sem colisão
 ├── optimizer/
-└── __init__.py
+│   ├── __init__.py
+│   ├── __main__.py        # CLI e GUI (Tkinter) do Otimizador (-O0 vs -O1)
+│   └── optimizer.py       # Passes de otimização de IR (-O1)
+└── codegen/
+    └── __init__.py        # Reservado para geração de código final
 ```
 
-## Como executar
+## Como Executar (a partir da raiz do repositório)
 
-No diretório do projeto Python:
+### Interfaces Gráficas (Tkinter)
 
-```powershell
-cd "C:\Users\guilherme.lima\OneDrive - Alpargatas S.A\Documentos\GitHub\Projeto_MiniC\ProjetoMiniC\Python"
-uv python install 3.12
-uv run python -m src.lexer
+```bash
+python main.py                         # Painel principal (Launcher com todas as etapas)
+python -m ProjetoMiniC.src.lexer       # GUI da Análise Léxica
+python -m ProjetoMiniC.src.parser      # GUI da Análise Sintática (AST)
+python -m ProjetoMiniC.src.semantic    # GUI da Análise Semântica
+python -m ProjetoMiniC.src.ir          # GUI da Representação Intermediária (TAC)
+python -m ProjetoMiniC.src.optimizer   # GUI do Otimizador de IR (-O0 vs -O1)
 ```
 
-## Interface gráfica do lexer
+### Linha de Comando (CLI)
 
-O ponto de entrada do módulo em `src.lexer` foi convertido para uma interface em Tkinter, permitindo:
-
-- executar os testes já criados;
-- escrever código diretamente na interface;
-- abrir um arquivo `.py` para análise;
-- visualizar os tokens e diagnósticos léxicos em uma área de saída.
-
-## O que a execução mostra
-
-Ao rodar o módulo, o programa executa uma série de testes de validação do lexer, incluindo:
-
-1. código válido
-2. código com símbolos inválidos e string não fechada
-3. código com operadores lógicos e comentário de bloco sem fechar
-
-Além disso, é possível testar qualquer texto manualmente ou importar um arquivo do usuário para análise.
-
-## Módulos do lexer
-
-- `token_types.py`: define os tipos de token da linguagem
-- `tokens.py`: estrutura os objetos Token
-- `errors.py`: define as exceções e mensagens de erro léxico
-- `scanner.py`: percorre o código-fonte e identifica cada token
-- `demo.py`: contém os testes de demonstração
-- `__main__.py`: ponto de entrada para execução do módulo, com suporte a interface gráfica
-
-## Próximos passos
-
-- implementar o parser
-- construir a árvore sintática
-- validar regras semânticas
-- gerar código intermediário ou final
+```bash
+python scanner.py arquivo.c --jsonl    # Etapa 1: Tokens e erros em JSONL
+python parser.py arquivo.c             # Etapa 2: AST em S-expression
+python minic.py arquivo.c              # Etapa 3: Análise Semântica
+python minic.py --ir arquivo.c         # Etapa 4: Geração de IR (TAC -O0)
+python minic.py --ir -O1 arquivo.c     # Etapa 5: Geração de IR Otimizada (-O1)
+python ir.py arquivo.c                 # Atalho direto para IR (-O0)
+python ir.py -O1 arquivo.c             # Atalho direto para IR (-O1)
+```

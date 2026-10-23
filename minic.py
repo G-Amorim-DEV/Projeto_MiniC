@@ -1,23 +1,47 @@
-"""Semantic and IR CLI; parser.py retains its existing syntax/AST contract."""
+"""Semantic, IR, and Optimization CLI; parser.py retains its existing syntax/AST contract."""
 import sys
 from pathlib import Path
 from ProjetoMiniC.src.lexer.scanner import Scanner
 from ProjetoMiniC.src.parser import Parser
 from ProjetoMiniC.src.semantic import SemanticAnalyzer
 from ProjetoMiniC.src.ir import generate_ir, format_ir
+from ProjetoMiniC.src.optimizer import optimize_ir
 
 
 def main(argv=None):
     args = list(sys.argv[1:] if argv is None else argv)
     emit_ir = False
-    if '--ir' in args:
-        emit_ir = True
-        args = [a for a in args if a != '--ir']
-    if len(args) != 1 or args[0].startswith('-'):
-        print('Uso: python3 minic.py [--ir] <arquivo.c | arquivo.minic>', file=sys.stderr)
+    optimize = False
+    explicit_ir = False
+    explicit_opt = False
+    positional = []
+    for arg in args:
+        if arg == '--ir':
+            emit_ir = True
+            explicit_ir = True
+        elif arg == '-O1':
+            optimize = True
+            emit_ir = True
+            explicit_ir = True
+            explicit_opt = True
+        elif arg == '-O0':
+            optimize = False
+            explicit_opt = True
+        elif arg.startswith('-'):
+            print('Uso: python3 minic.py [--ir] [-O0|-O1] <arquivo.c | arquivo.minic>', file=sys.stderr)
+            return 1
+        else:
+            positional.append(arg)
+    if len(positional) != 1:
+        print('Uso: python3 minic.py [--ir] [-O0|-O1] <arquivo.c | arquivo.minic>', file=sys.stderr)
         return 1
+    norm_path = positional[0].replace('\\', '/').lower()
+    if not explicit_ir and ('03-otimizacoes' in norm_path or '01-validos-sem-otimizacao' in norm_path):
+        emit_ir = True
+    if not explicit_opt and '03-otimizacoes' in norm_path:
+        optimize = True
     try:
-        source = Path(args[0]).read_text(encoding='utf-8-sig')
+        source = Path(positional[0]).read_text(encoding='utf-8-sig')
     except (OSError, UnicodeError) as error:
         print(f'Erro ao ler arquivo: {error}', file=sys.stderr)
         return 1
@@ -39,6 +63,8 @@ def main(argv=None):
         return 4
     if emit_ir:
         ir_program = generate_ir(tree)
+        if optimize:
+            ir_program = optimize_ir(ir_program)
         print(format_ir(ir_program))
         return 0
     lines = ['Análise semântica concluída: 0 erros; programa aceito.']

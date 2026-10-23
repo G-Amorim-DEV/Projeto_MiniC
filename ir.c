@@ -1,5 +1,6 @@
-/* Single translation unit for the IR generator CLI. */
+/* Single translation unit for the IR and optimizer CLI. */
 #include "C/ir_main.c"
+#include "C/optimizer.c"
 #include "C/ir.c"
 #include "C/semantic.c"
 #include "C/parser.c"
@@ -15,4 +16,3 @@
 #include "C/token_types.c"
 #include "C/errors.c"
 #include "C/util.c"
-

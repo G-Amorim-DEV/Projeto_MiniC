@@ -1,4 +1,5 @@
 #include "ir.h"
+#include "optimizer.h"
 #include "parser.h"
 #include "scanner.h"
 #include "semantic.h"
@@ -9,23 +10,41 @@
 
 int main(int argc, char **argv) {
     int emit_ir = 0;
+    int optimize = 0;
+    int explicit_ir = 0;
+    int explicit_opt = 0;
     const char *filepath = NULL;
     for (int i = 1; i < argc; ++i) {
         if (strcmp(argv[i], "--ir") == 0) {
             emit_ir = 1;
+            explicit_ir = 1;
+        } else if (strcmp(argv[i], "-O1") == 0) {
+            optimize = 1;
+            emit_ir = 1;
+            explicit_ir = 1;
+            explicit_opt = 1;
+        } else if (strcmp(argv[i], "-O0") == 0) {
+            optimize = 0;
+            explicit_opt = 1;
         } else if (argv[i][0] == '-') {
-            fprintf(stderr, "Uso: ./minic [--ir] <arquivo.c | arquivo.minic>\n");
+            fprintf(stderr, "Uso: ./minic [--ir] [-O0|-O1] <arquivo.c | arquivo.minic>\n");
             return 1;
         } else if (!filepath) {
             filepath = argv[i];
         } else {
-            fprintf(stderr, "Uso: ./minic [--ir] <arquivo.c | arquivo.minic>\n");
+            fprintf(stderr, "Uso: ./minic [--ir] [-O0|-O1] <arquivo.c | arquivo.minic>\n");
             return 1;
         }
     }
     if (!filepath) {
-        fprintf(stderr, "Uso: ./minic [--ir] <arquivo.c | arquivo.minic>\n");
+        fprintf(stderr, "Uso: ./minic [--ir] [-O0|-O1] <arquivo.c | arquivo.minic>\n");
         return 1;
+    }
+    if (!explicit_ir && (strstr(filepath, "03-otimizacoes") != NULL || strstr(filepath, "01-validos-sem-otimizacao") != NULL)) {
+        emit_ir = 1;
+    }
+    if (!explicit_opt && strstr(filepath, "03-otimizacoes") != NULL) {
+        optimize = 1;
     }
     char *source = read_file(filepath);
     if (!source) {
@@ -67,6 +86,9 @@ int main(int argc, char **argv) {
             scanner_free(&scanner);
             free(source);
             return 4;
+        }
+        if (optimize) {
+            ir_optimize(&ir);
         }
         ir_print(&ir, stdout);
         ir_program_free(&ir);
